@@ -177,6 +177,7 @@ The workflow:
 - Restores the CLI for `linux-x64`.
 - Runs the test suite.
 - Publishes the CLI as a Native AOT binary.
+- Prints `dotnet --info`, `file`, and `ldd` output to make release-run failures diagnosable.
 - Smoke-tests the published binary against a fixture.
 - Uploads `altinn-apim-policy-compiler-linux-x64.tar.gz` and its `.sha256` file to the release.
 
