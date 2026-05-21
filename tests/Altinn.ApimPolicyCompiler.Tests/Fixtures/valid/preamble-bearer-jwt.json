@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "scope": "dialogporten",
+  "enabled": true,
+  "rules": [
+    {
+      "id": "jwt",
+      "enabled": true,
+      "methods": ["GET"],
+      "pathMode": "prefix",
+      "path": "/jwt",
+      "keyMode": "client-id",
+      "calls": 5,
+      "renewalPeriod": 60
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "scope": "dialog porten",
+  "enabled": true,
+  "rules": [
+    {
+      "id": "bad/id",
+      "enabled": true,
+      "methods": ["GET"],
+      "pathMode": "any",
+      "keyMode": "client-id",
+      "calls": 10,
+      "renewalPeriod": 60
+    }
+  ]
+}

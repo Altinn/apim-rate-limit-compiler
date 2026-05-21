@@ -1,0 +1,1 @@
+ERROR APIMRL1107 [rules[0].keyClaimName]: keyClaimName is required when keyMode is client-id-claim.

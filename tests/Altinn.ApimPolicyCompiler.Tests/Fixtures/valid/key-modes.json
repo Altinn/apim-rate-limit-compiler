@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "scope": "dialogporten",
+  "enabled": true,
+  "rules": [
+    {
+      "id": "client",
+      "enabled": true,
+      "methods": ["GET"],
+      "pathMode": "prefix",
+      "path": "/client",
+      "keyMode": "client-id",
+      "calls": 10,
+      "renewalPeriod": 60
+    },
+    {
+      "id": "client-ip",
+      "enabled": true,
+      "methods": ["GET"],
+      "pathMode": "prefix",
+      "path": "/client-ip",
+      "keyMode": "client-id-ip",
+      "calls": 10,
+      "renewalPeriod": 60
+    },
+    {
+      "id": "client-claim",
+      "enabled": true,
+      "methods": ["GET"],
+      "pathMode": "prefix",
+      "path": "/client-claim",
+      "keyMode": "client-id-claim",
+      "keyClaimName": "consumer",
+      "calls": 10,
+      "renewalPeriod": 60
+    }
+  ]
+}

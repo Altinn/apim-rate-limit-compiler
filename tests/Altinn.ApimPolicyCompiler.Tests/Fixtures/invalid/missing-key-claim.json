@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "scope": "dialogporten",
+  "enabled": true,
+  "rules": [
+    {
+      "id": "bad",
+      "enabled": true,
+      "methods": ["GET"],
+      "pathMode": "any",
+      "keyMode": "client-id-claim",
+      "calls": 10,
+      "renewalPeriod": 60
+    }
+  ]
+}

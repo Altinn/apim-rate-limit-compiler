@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "scope": "dialogporten",
+  "enabled": true,
+  "rules": [
+    {
+      "id": "write-any",
+      "enabled": true,
+      "methods": ["POST"],
+      "pathMode": "any",
+      "keyMode": "client-id",
+      "calls": 15,
+      "renewalPeriod": 60
+    }
+  ]
+}

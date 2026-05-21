@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "scope": "dialogporten",
+  "enabled": true,
+  "rules": [
+    {
+      "id": "bad",
+      "enabled": true,
+      "methods": ["CONNECT"],
+      "pathMode": "regex",
+      "path": "/x",
+      "keyMode": "subscription",
+      "calls": 10,
+      "renewalPeriod": 60
+    }
+  ]
+}

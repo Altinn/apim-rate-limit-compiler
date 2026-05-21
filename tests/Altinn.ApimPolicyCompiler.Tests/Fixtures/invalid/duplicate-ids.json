@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "scope": "dialogporten",
+  "enabled": true,
+  "rules": [
+    {
+      "id": "dup",
+      "enabled": true,
+      "methods": ["GET"],
+      "pathMode": "any",
+      "keyMode": "client-id",
+      "calls": 10,
+      "renewalPeriod": 60
+    },
+    {
+      "id": "dup",
+      "enabled": true,
+      "methods": ["POST"],
+      "pathMode": "any",
+      "keyMode": "client-id",
+      "calls": 10,
+      "renewalPeriod": 60
+    }
+  ]
+}

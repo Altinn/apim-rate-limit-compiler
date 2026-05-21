@@ -1,0 +1,2 @@
+ERROR APIMRL1002 [scope]: Scope is required and may only contain letters, digits, '-' and '_'.
+ERROR APIMRL1101 [rules[0].id]: Rule id is required and may only contain letters, digits, '-' and '_'.

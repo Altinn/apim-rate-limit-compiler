@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "scope": "dialogporten",
+  "enabled": true,
+  "rules": [
+    {
+      "id": "burst",
+      "enabled": true,
+      "methods": ["*"],
+      "pathMode": "prefix",
+      "path": "/dialogporten",
+      "keyMode": "client-id",
+      "calls": 20,
+      "renewalPeriod": 10
+    },
+    {
+      "id": "sustained",
+      "enabled": true,
+      "methods": ["*"],
+      "pathMode": "prefix",
+      "path": "/dialogporten",
+      "keyMode": "client-id",
+      "calls": 300,
+      "renewalPeriod": 300
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+ERROR APIMRL1108 [rules[0].calls]: calls must be greater than 0.
+ERROR APIMRL1109 [rules[0].renewalPeriod]: renewalPeriod must be between 1 and 300 seconds.

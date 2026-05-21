@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "scope": "dialogporten",
+  "enabled": true,
+  "rules": [
+    {
+      "id": "instance-read",
+      "enabled": true,
+      "methods": ["GET"],
+      "pathMode": "exact",
+      "path": "/dialogporten/api/v1/serviceowner/instances",
+      "keyMode": "client-id-ip",
+      "calls": 30,
+      "renewalPeriod": 10
+    }
+  ]
+}

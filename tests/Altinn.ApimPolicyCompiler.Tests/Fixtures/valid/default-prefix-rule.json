@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "scope": "dialogporten",
+  "enabled": true,
+  "rules": [
+    {
+      "id": "default",
+      "enabled": true,
+      "methods": ["GET", "POST"],
+      "pathMode": "prefix",
+      "path": "/dialogporten",
+      "keyMode": "client-id",
+      "calls": 120,
+      "renewalPeriod": 60
+    }
+  ]
+}
