@@ -52,7 +52,7 @@ public static class RateLimitCompiler
         var xml = GenerateXml(config);
         try
         {
-            XDocument.Parse(xml, LoadOptions.PreserveWhitespace);
+            _ = XDocument.Parse(xml, LoadOptions.PreserveWhitespace);
         }
         catch (XmlException ex)
         {
@@ -132,7 +132,7 @@ public static class RateLimitCompiler
                 diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1108", "calls must be greater than 0.", $"{target}.calls"));
             }
 
-            if (rule.RenewalPeriod <= 0 || rule.RenewalPeriod > 300)
+            if (rule.RenewalPeriod is <= 0 or > 300)
             {
                 diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1109", "renewalPeriod must be between 1 and 300 seconds.", $"{target}.renewalPeriod"));
             }
@@ -142,7 +142,7 @@ public static class RateLimitCompiler
                 diagnostics.Add(new Diagnostic(DiagnosticSeverity.Warning, "APIMRL2001", "Rule matches all methods and all paths.", target));
             }
 
-            if (rule.Enabled && rule.Calls >= 10000)
+            if (rule is { Enabled: true, Calls: >= 10000 })
             {
                 diagnostics.Add(new Diagnostic(DiagnosticSeverity.Warning, "APIMRL2004", "Rule has a very high call limit.", $"{target}.calls"));
             }
@@ -237,7 +237,7 @@ public static class RateLimitCompiler
 
     private static bool IsBroad(RateLimitRule rule)
     {
-        return rule.Methods is ["*"] && rule.PathMode == "any";
+        return rule is { Methods: ["*"], PathMode: "any" };
     }
 
     private static bool MayOverlap(RateLimitRule left, RateLimitRule right)
