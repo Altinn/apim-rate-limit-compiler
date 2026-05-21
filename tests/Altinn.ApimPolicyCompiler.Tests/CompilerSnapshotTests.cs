@@ -73,7 +73,6 @@ public sealed class CompilerSnapshotTests
         Assert.Equal(2, Program.Run([], TextWriter.Null, TextWriter.Null));
         Assert.Equal(0, Program.Run(["rate-limit", "--input", valid, "--stdout"], TextWriter.Null, TextWriter.Null));
         Assert.Equal(1, Program.Run(["rate-limit", "--input", invalid, "--stdout"], TextWriter.Null, TextWriter.Null));
-        Assert.Equal(1, Program.Run(["rate-limit", "--input", Path.Combine(FixtureRoot, "valid", "overlapping-warning.json"), "--stdout", "--fail-on-warning"], TextWriter.Null, TextWriter.Null));
     }
 
     public static IEnumerable<object[]> ValidFixtures()

@@ -137,11 +137,6 @@ public static class RateLimitCompiler
                 diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1109", "renewalPeriod must be between 1 and 300 seconds.", $"{target}.renewalPeriod"));
             }
 
-            if (rule.Enabled && IsBroad(rule))
-            {
-                diagnostics.Add(new Diagnostic(DiagnosticSeverity.Warning, "APIMRL2001", "Rule matches all methods and all paths.", target));
-            }
-
             if (rule is { Enabled: true, Calls: >= 10000 })
             {
                 diagnostics.Add(new Diagnostic(DiagnosticSeverity.Warning, "APIMRL2004", "Rule has a very high call limit.", $"{target}.calls"));
@@ -152,17 +147,6 @@ public static class RateLimitCompiler
         if (enabledRules.Length > 50)
         {
             diagnostics.Add(new Diagnostic(DiagnosticSeverity.Warning, "APIMRL2003", "Scope contains many enabled rules.", "rules"));
-        }
-
-        for (var i = 0; i < enabledRules.Length; i++)
-        {
-            for (var j = i + 1; j < enabledRules.Length; j++)
-            {
-                if (MayOverlap(enabledRules[i], enabledRules[j]))
-                {
-                    diagnostics.Add(new Diagnostic(DiagnosticSeverity.Warning, "APIMRL2002", $"Rules '{enabledRules[i].Id}' and '{enabledRules[j].Id}' may overlap.", "rules"));
-                }
-            }
         }
 
         return diagnostics;
@@ -233,53 +217,6 @@ public static class RateLimitCompiler
         }
 
         return true;
-    }
-
-    private static bool IsBroad(RateLimitRule rule)
-    {
-        return rule is { Methods: ["*"], PathMode: "any" };
-    }
-
-    private static bool MayOverlap(RateLimitRule left, RateLimitRule right)
-    {
-        return MethodsOverlap(left.Methods, right.Methods) && PathsOverlap(left, right);
-    }
-
-    private static bool MethodsOverlap(List<string>? left, List<string>? right)
-    {
-        if (left is null || right is null)
-        {
-            return false;
-        }
-
-        return left.Contains("*", StringComparer.Ordinal)
-            || right.Contains("*", StringComparer.Ordinal)
-            || left.Intersect(right, StringComparer.Ordinal).Any();
-    }
-
-    private static bool PathsOverlap(RateLimitRule left, RateLimitRule right)
-    {
-        if (left.PathMode == "any" || right.PathMode == "any")
-        {
-            return true;
-        }
-
-        var leftPath = left.Path ?? string.Empty;
-        var rightPath = right.Path ?? string.Empty;
-
-        if (left.PathMode == "exact" && right.PathMode == "exact")
-        {
-            return string.Equals(leftPath, rightPath, StringComparison.Ordinal);
-        }
-
-        if (left.PathMode == "prefix" && right.PathMode == "prefix")
-        {
-            return leftPath.StartsWith(rightPath, StringComparison.Ordinal) || rightPath.StartsWith(leftPath, StringComparison.Ordinal);
-        }
-
-        var exact = left.PathMode == "exact" ? leftPath : rightPath;
-        var prefix = left.PathMode == "prefix" ? leftPath : rightPath;
-        return exact.StartsWith(prefix, StringComparison.Ordinal);
     }
 
     private static string GenerateXml(RateLimitConfig config)

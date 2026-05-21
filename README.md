@@ -138,8 +138,6 @@ Errors fail compilation:
 
 Warnings do not fail compilation unless `--fail-on-warning` is set:
 
-- Broad match: `methods=["*"]` and `pathMode=any`.
-- Potential overlapping rules.
 - More than 50 enabled rules in one scope.
 - Very high call limits.
 
