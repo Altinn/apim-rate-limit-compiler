@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  publish-linux-x64:
+    name: Publish linux-x64
+    runs-on: ubuntu-24.04
+
+    env:
+      RID: linux-x64
+      PROJECT: src/Altinn.ApimPolicyCompiler.Cli/Altinn.ApimPolicyCompiler.Cli.csproj
+      OUTPUT_DIR: artifacts/linux-x64
+      ASSET_NAME: altinn-apim-policy-compiler-linux-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install Native AOT prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Restore
+        run: dotnet restore "$PROJECT" -r "$RID" -v minimal
+
+      - name: Test
+        run: dotnet test tests/Altinn.ApimPolicyCompiler.Tests/Altinn.ApimPolicyCompiler.Tests.csproj --no-restore -v minimal
+
+      - name: Publish Native AOT
+        run: >
+          dotnet publish "$PROJECT"
+          -c Release
+          -r "$RID"
+          -p:PublishAot=true
+          --no-restore
+          -o "$OUTPUT_DIR"
+          -v minimal
+
+      - name: Smoke test binary
+        run: |
+          chmod +x "$OUTPUT_DIR/altinn-apim-policy-compiler"
+          "$OUTPUT_DIR/altinn-apim-policy-compiler" rate-limit \
+            --input tests/Altinn.ApimPolicyCompiler.Tests/Fixtures/valid/disabled-config.json \
+            --stdout
+
+      - name: Package release asset
+        run: |
+          tar -C "$OUTPUT_DIR" -czf "$ASSET_NAME.tar.gz" altinn-apim-policy-compiler
+          sha256sum "$ASSET_NAME.tar.gz" > "$ASSET_NAME.tar.gz.sha256"
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            "$ASSET_NAME.tar.gz" \
+            "$ASSET_NAME.tar.gz.sha256" \
+            --clobber

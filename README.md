@@ -151,12 +151,12 @@ Run tests:
 dotnet test tests/Altinn.ApimPolicyCompiler.Tests/Altinn.ApimPolicyCompiler.Tests.csproj --no-restore -v minimal -nr:false
 ```
 
-Publish a Native AOT binary for macOS ARM64:
+Publish a Native AOT binary for Linux x64:
 
 ```bash
 dotnet publish src/Altinn.ApimPolicyCompiler.Cli/Altinn.ApimPolicyCompiler.Cli.csproj \
   -c Release \
-  -r osx-arm64 \
+  -r linux-x64 \
   -p:PublishAot=true \
   -v minimal \
   -nr:false
@@ -165,7 +165,30 @@ dotnet publish src/Altinn.ApimPolicyCompiler.Cli/Altinn.ApimPolicyCompiler.Cli.c
 The published binary is written to:
 
 ```text
-src/Altinn.ApimPolicyCompiler.Cli/bin/Release/net10.0/osx-arm64/publish/
+src/Altinn.ApimPolicyCompiler.Cli/bin/Release/net10.0/linux-x64/publish/
+```
+
+## Release Workflow
+
+Creating and publishing a GitHub Release runs `.github/workflows/release.yml`.
+
+The workflow:
+
+- Restores the CLI for `linux-x64`.
+- Runs the test suite.
+- Publishes the CLI as a Native AOT binary.
+- Smoke-tests the published binary against a fixture.
+- Uploads `altinn-apim-policy-compiler-linux-x64.tar.gz` and its `.sha256` file to the release.
+
+Downstream pipelines can download the release asset, verify the checksum, and run the binary directly:
+
+```bash
+tar -xzf altinn-apim-policy-compiler-linux-x64.tar.gz
+./altinn-apim-policy-compiler rate-limit \
+  --input rate-limits/dialogporten.json \
+  --output generated/rate-limit-dialogporten.fragment.xml \
+  --write-hash generated/rate-limit-dialogporten.sha256 \
+  --fail-on-warning
 ```
 
 ## Snapshot Tests
