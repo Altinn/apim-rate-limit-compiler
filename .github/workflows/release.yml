@@ -46,9 +46,21 @@ jobs:
           -o "$OUTPUT_DIR"
           -v minimal
 
+      - name: Normalize binary name
+        run: |
+          ls -la "$OUTPUT_DIR"
+          binary_path="$(find "$OUTPUT_DIR" -maxdepth 1 -type f ! -name '*.dll' ! -name '*.pdb' ! -name '*.json' ! -name '*.dbg' | head -n 1)"
+          if [ -z "$binary_path" ]; then
+            echo "No native executable found in $OUTPUT_DIR"
+            exit 1
+          fi
+          if [ "$binary_path" != "$OUTPUT_DIR/altinn-apim-policy-compiler" ]; then
+            cp "$binary_path" "$OUTPUT_DIR/altinn-apim-policy-compiler"
+          fi
+          chmod +x "$OUTPUT_DIR/altinn-apim-policy-compiler"
+
       - name: Smoke test binary
         run: |
-          chmod +x "$OUTPUT_DIR/altinn-apim-policy-compiler"
           "$OUTPUT_DIR/altinn-apim-policy-compiler" rate-limit \
             --input tests/Altinn.ApimPolicyCompiler.Tests/Fixtures/valid/disabled-config.json \
             --stdout
