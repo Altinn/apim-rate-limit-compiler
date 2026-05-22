@@ -144,7 +144,7 @@ public static class RateLimitCompiler
         }
 
         var enabledRules = config.Rules.Where(static x => x.Enabled).ToArray();
-        if (enabledRules.Length > 50)
+        if (enabledRules.Length > 10)
         {
             diagnostics.Add(new Diagnostic(DiagnosticSeverity.Warning, "APIMRL2003", "Scope contains many enabled rules.", "rules"));
         }
@@ -239,8 +239,35 @@ public static class RateLimitCompiler
 
     private static XElement CreatePreamble()
     {
-        const string missingClientId = "@(!(context.Variables.ContainsKey(\"oauthClientId\") && !string.IsNullOrEmpty((string)context.Variables[\"oauthClientId\"])))";
-        const string resolveClientId = "@{ var authorization = context.Request.Headers.GetValueOrDefault(\"Authorization\", \"\"); if (!string.IsNullOrEmpty(authorization) && authorization.StartsWith(\"Bearer \", StringComparison.OrdinalIgnoreCase)) { var jwt = authorization.Substring(7).AsJwt(); if (jwt != null && jwt.Claims.ContainsKey(\"client_id\")) { return jwt.Claims.GetValueOrDefault(\"client_id\", \"\"); } } return \"\"; }";
+        var missingClientId = NormalizePolicyExpression(
+            // language=C#
+            """
+            @(
+                !(context.Variables.ContainsKey("oauthClientId")
+                    && !string.IsNullOrEmpty((string)context.Variables["oauthClientId"]))
+            )
+            """);
+
+        var resolveClientId = NormalizePolicyExpression(
+            // language=C#
+            """
+            @{
+                var authorization = context.Request.Headers.GetValueOrDefault("Authorization", "");
+
+                if (!string.IsNullOrEmpty(authorization)
+                    && authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var jwt = authorization.Substring(7).AsJwt();
+
+                    if (jwt != null && jwt.Claims.ContainsKey("client_id"))
+                    {
+                        return jwt.Claims.GetValueOrDefault("client_id", "");
+                    }
+                }
+
+                return "";
+            }
+            """);
 
         return new XElement(
             "choose",
@@ -255,7 +282,15 @@ public static class RateLimitCompiler
 
     private static XElement CreateRuleChoose(string scope, RateLimitRule rule)
     {
-        var condition = $"@(!string.IsNullOrEmpty((string)context.Variables[\"oauthClientId\"]) && {BuildMatchExpression(rule)})";
+        var condition = NormalizePolicyExpression(
+            // language=C#
+            $$"""
+            @(
+                !string.IsNullOrEmpty((string)context.Variables["oauthClientId"])
+                && {{BuildMatchExpression(rule)}}
+            )
+            """);
+
         return new XElement(
             "choose",
             new XElement(
@@ -275,17 +310,41 @@ public static class RateLimitCompiler
     {
         var methodExpression = rule.Methods is ["*"]
             ? "true"
-            : "(" + string.Join(" || ", rule.Methods!.Order(StringComparer.Ordinal).Select(static x => $"context.Request.Method == \"{x}\"")) + ")";
+            : NormalizePolicyExpression(
+                $$"""
+                (
+                    {{string.Join(
+                        " || ",
+                        rule.Methods!
+                            .Order(StringComparer.Ordinal)
+                            .Select(static x => $"context.Request.Method == {QuotePolicyString(x)}"))}}
+                )
+                """);
 
         var pathExpression = rule.PathMode switch
         {
             "any" => "true",
-            "exact" => $"context.Request.Url.Path == \"{EscapePolicyString(rule.Path!)}\"",
-            "prefix" => $"context.Request.Url.Path.StartsWith(\"{EscapePolicyString(rule.Path!)}\", StringComparison.Ordinal)",
+            "exact" => NormalizePolicyExpression(
+                $$"""
+                context.Request.Url.Path == {{QuotePolicyString(rule.Path!)}}
+                """),
+            "prefix" => NormalizePolicyExpression(
+                $$"""
+                context.Request.Url.Path.StartsWith(
+                    {{QuotePolicyString(rule.Path!)}},
+                    StringComparison.Ordinal
+                )
+                """),
             _ => "false"
         };
 
-        return $"({methodExpression} && {pathExpression})";
+        return NormalizePolicyExpression(
+            $$"""
+            (
+                {{methodExpression}}
+                && {{pathExpression}}
+            )
+            """);
     }
 
     private static string BuildCounterKeyExpression(string scope, RateLimitRule rule)
@@ -293,16 +352,47 @@ public static class RateLimitCompiler
         var prefix = $"{scope}:{rule.Id}:{rule.KeyMode}:";
         return rule.KeyMode switch
         {
-            "client-id" => $"@(\"{prefix}\" + (string)context.Variables[\"oauthClientId\"])",
-            "client-id-ip" => $"@(\"{prefix}\" + (string)context.Variables[\"oauthClientId\"] + \":\" + context.Request.IpAddress)",
-            "client-id-claim" => $"@(\"{prefix}{EscapePolicyString(rule.KeyClaimName!)}:\" + (string)context.Variables[\"oauthClientId\"])",
-            _ => $"@(\"{prefix}\" + (string)context.Variables[\"oauthClientId\"])"
+            "client-id" => BuildClientIdCounterKey(prefix),
+            "client-id-ip" => NormalizePolicyExpression(
+                $$"""
+                @(
+                    {{QuotePolicyString(prefix)}}
+                    + (string)context.Variables["oauthClientId"]
+                    + ":"
+                    + context.Request.IpAddress
+                )
+                """),
+            "client-id-claim" => BuildClientIdCounterKey($"{prefix}{rule.KeyClaimName!}:"),
+            _ => BuildClientIdCounterKey(prefix)
         };
     }
 
-    private static string EscapePolicyString(string value)
+    private static string BuildClientIdCounterKey(string prefix)
     {
-        return value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
+        return NormalizePolicyExpression(
+            $$"""
+            @(
+                {{QuotePolicyString(prefix)}}
+                + (string)context.Variables["oauthClientId"]
+            )
+            """);
+    }
+
+    private static string NormalizePolicyExpression(string expression)
+    {
+        return string.Join(
+            " ",
+            expression
+                .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                .Select(static x => x.Trim()))
+            .Replace("@( ", "@(", StringComparison.Ordinal)
+            .Replace("( ", "(", StringComparison.Ordinal)
+            .Replace(" )", ")", StringComparison.Ordinal);
+    }
+
+    private static string QuotePolicyString(string value)
+    {
+        return "\"" + value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
     }
 
     private static string WriteDocument(XElement fragment)
