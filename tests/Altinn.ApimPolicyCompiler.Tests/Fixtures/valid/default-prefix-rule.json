@@ -1,4 +1,5 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Altinn/altinn-apim-policy-compiler/main/schemas/rate-limit-v1.schema.json",
   "version": 1,
   "scope": "dialogporten",
   "enabled": true,

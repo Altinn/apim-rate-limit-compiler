@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Altinn/altinn-apim-policy-compiler/main/schemas/rate-limit-v1.schema.json",
+  "title": "Altinn APIM rate-limit policy configuration v1",
+  "description": "Configuration consumed by altinn-apim-policy-compiler to generate Azure API Management rate-limit policy fragment XML.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "scope", "enabled", "rules"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional schema reference for editors and CI validation.",
+      "const": "https://raw.githubusercontent.com/Altinn/altinn-apim-policy-compiler/main/schemas/rate-limit-v1.schema.json"
+    },
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "scope": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
+    }
+  },
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "enabled",
+        "methods",
+        "pathMode",
+        "keyMode",
+        "calls",
+        "renewalPeriod"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+$"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "methods": {
+          "oneOf": [
+            {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "const": "*"
+                }
+              ],
+              "items": false,
+              "minItems": 1,
+              "maxItems": 1
+            },
+            {
+              "type": "array",
+              "items": {
+                "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "TRACE"]
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            }
+          ]
+        },
+        "pathMode": {
+          "enum": ["any", "exact", "prefix"]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "keyMode": {
+          "enum": ["client-id", "client-id-ip", "client-id-claim"]
+        },
+        "keyClaimName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calls": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "renewalPeriod": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "pathMode": {
+                "enum": ["exact", "prefix"]
+              }
+            },
+            "required": ["pathMode"]
+          },
+          "then": {
+            "required": ["path"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "keyMode": {
+                "const": "client-id-claim"
+              }
+            },
+            "required": ["keyMode"]
+          },
+          "then": {
+            "required": ["keyClaimName"]
+          }
+        }
+      ]
+    }
+  }
+}

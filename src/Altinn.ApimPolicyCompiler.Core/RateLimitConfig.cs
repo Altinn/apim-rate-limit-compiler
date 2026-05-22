@@ -5,6 +5,9 @@ namespace Altinn.ApimPolicyCompiler.Core;
 
 public sealed class RateLimitConfig
 {
+    [JsonPropertyName("$schema")]
+    public string? Schema { get; set; }
+
     [JsonPropertyName("version")]
     public int Version { get; set; }
 

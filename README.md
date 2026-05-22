@@ -57,6 +57,7 @@ Top-level shape:
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/Altinn/altinn-apim-policy-compiler/main/schemas/rate-limit-v1.schema.json",
   "version": 1,
   "scope": "dialogporten",
   "enabled": true,
@@ -86,6 +87,14 @@ Supported values:
 - `keyMode`: `client-id`, `client-id-ip`, `client-id-claim`.
 
 `keyClaimName` is required when `keyMode` is `client-id-claim`.
+
+The canonical JSON Schema for v1 is published at:
+
+```text
+https://raw.githubusercontent.com/Altinn/altinn-apim-policy-compiler/main/schemas/rate-limit-v1.schema.json
+```
+
+Product repositories can reference that URL in the top-level `$schema` property to get editor and CI validation while keeping the file directly consumable by the compiler.
 
 If top-level `enabled` is `false`, the compiler emits:
 
