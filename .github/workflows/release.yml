@@ -3,6 +3,12 @@ name: Release
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Existing GitHub Release tag to upload assets to
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -35,6 +41,7 @@ jobs:
     env:
       PROJECT: src/Altinn.ApimPolicyCompiler.Cli/Altinn.ApimPolicyCompiler.Cli.csproj
       OUTPUT_DIR: artifacts/${{ matrix.rid }}
+      RELEASE_TAG_NAME: ${{ github.event.release.tag_name || inputs.tag_name }}
 
     steps:
       - name: Checkout
@@ -89,7 +96,9 @@ jobs:
           if ($null -eq $binary) {
             throw "No native executable found in $env:OUTPUT_DIR"
           }
-          if ($binary.FullName -ne $expectedPath) {
+          $expectedFullPath = [System.IO.Path]::GetFullPath($expectedPath)
+          $binaryFullPath = [System.IO.Path]::GetFullPath($binary.FullName)
+          if ($binaryFullPath -ne $expectedFullPath) {
             Copy-Item $binary.FullName $expectedPath -Force
           }
           if ($IsLinux -or $IsMacOS) {
@@ -120,4 +129,5 @@ jobs:
       - name: Upload release asset
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ github.event.release.tag_name }}" "${{ matrix.archive_name }}" --clobber
+        run: gh release upload "$env:RELEASE_TAG_NAME" "${{ matrix.archive_name }}" --clobber
+        shell: pwsh

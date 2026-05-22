@@ -179,7 +179,7 @@ The release workflow currently builds `linux-x64`, `osx-arm64`, and `win-x64`.
 
 ## Release Workflow
 
-Creating and publishing a GitHub Release runs `.github/workflows/release.yml`.
+Creating and publishing a GitHub Release runs `.github/workflows/release.yml`. The same workflow can also be run manually with `workflow_dispatch` by providing an existing release tag name.
 
 The workflow:
 
