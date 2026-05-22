@@ -8,15 +8,33 @@ permissions:
   contents: write
 
 jobs:
-  publish-linux-x64:
-    name: Publish linux-x64
-    runs-on: ubuntu-24.04
+  publish:
+    name: Publish ${{ matrix.rid }}
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: linux-x64
+            runner: ubuntu-24.04
+            asset_name: altinn-apim-policy-compiler-linux-x64
+            executable_name: altinn-apim-policy-compiler
+            archive_name: altinn-apim-policy-compiler-linux-x64.tar.gz
+          - rid: osx-arm64
+            runner: macos-15
+            asset_name: altinn-apim-policy-compiler-osx-arm64
+            executable_name: altinn-apim-policy-compiler
+            archive_name: altinn-apim-policy-compiler-osx-arm64.tar.gz
+          - rid: win-x64
+            runner: windows-2025
+            asset_name: altinn-apim-policy-compiler-win-x64
+            executable_name: altinn-apim-policy-compiler.exe
+            archive_name: altinn-apim-policy-compiler-win-x64.zip
 
     env:
-      RID: linux-x64
       PROJECT: src/Altinn.ApimPolicyCompiler.Cli/Altinn.ApimPolicyCompiler.Cli.csproj
-      OUTPUT_DIR: artifacts/linux-x64
-      ASSET_NAME: altinn-apim-policy-compiler-linux-x64
+      OUTPUT_DIR: artifacts/${{ matrix.rid }}
 
     steps:
       - name: Checkout
@@ -32,56 +50,74 @@ jobs:
         run: dotnet --info
 
       - name: Install Native AOT prerequisites
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
 
       - name: Restore
-        run: dotnet restore "$PROJECT" -r "$RID" -p:PublishAot=true -v minimal
+        run: dotnet restore "$env:PROJECT" -r "${{ matrix.rid }}" -p:PublishAot=true -v minimal
+        shell: pwsh
 
       - name: Test
         run: dotnet test tests/Altinn.ApimPolicyCompiler.Tests/Altinn.ApimPolicyCompiler.Tests.csproj --no-restore -v minimal
 
       - name: Publish Native AOT
         run: >
-          dotnet publish "$PROJECT"
+          dotnet publish "$env:PROJECT"
           -c Release
-          -r "$RID"
+          -r "${{ matrix.rid }}"
           -p:PublishAot=true
           --self-contained true
           --no-restore
-          -o "$OUTPUT_DIR"
+          -o "$env:OUTPUT_DIR"
           -v minimal
+        shell: pwsh
 
       - name: Normalize binary name
         run: |
-          ls -la "$OUTPUT_DIR"
-          binary_path="$(find "$OUTPUT_DIR" -maxdepth 1 -type f ! -name '*.dll' ! -name '*.pdb' ! -name '*.json' ! -name '*.dbg' ! -name '*.so' | head -n 1)"
-          if [ -z "$binary_path" ]; then
-            echo "No native executable found in $OUTPUT_DIR"
-            exit 1
-          fi
-          if [ "$binary_path" != "$OUTPUT_DIR/altinn-apim-policy-compiler" ]; then
-            cp "$binary_path" "$OUTPUT_DIR/altinn-apim-policy-compiler"
-          fi
-          chmod +x "$OUTPUT_DIR/altinn-apim-policy-compiler"
-          file "$OUTPUT_DIR/altinn-apim-policy-compiler"
-          ldd "$OUTPUT_DIR/altinn-apim-policy-compiler" || true
+          Get-ChildItem -Force $env:OUTPUT_DIR
+          $expectedPath = Join-Path $env:OUTPUT_DIR '${{ matrix.executable_name }}'
+          $binary = Get-ChildItem -Path $env:OUTPUT_DIR -File |
+            Where-Object {
+              $_.Name -notlike '*.dll' `
+                -and $_.Name -notlike '*.pdb' `
+                -and $_.Name -notlike '*.json' `
+                -and $_.Name -notlike '*.dbg' `
+                -and $_.Name -notlike '*.so' `
+                -and $_.Name -notlike '*.dylib'
+            } |
+            Select-Object -First 1
+          if ($null -eq $binary) {
+            throw "No native executable found in $env:OUTPUT_DIR"
+          }
+          if ($binary.FullName -ne $expectedPath) {
+            Copy-Item $binary.FullName $expectedPath -Force
+          }
+          if ($IsLinux -or $IsMacOS) {
+            chmod +x $expectedPath
+            file $expectedPath
+          }
+          if ($IsLinux) {
+            ldd $expectedPath || true
+          }
+        shell: pwsh
 
       - name: Smoke test binary
         run: |
-          "$OUTPUT_DIR/altinn-apim-policy-compiler" rate-limit \
-            --input tests/Altinn.ApimPolicyCompiler.Tests/Fixtures/valid/disabled-config.json \
+          & (Join-Path $env:OUTPUT_DIR '${{ matrix.executable_name }}') rate-limit `
+            --input tests/Altinn.ApimPolicyCompiler.Tests/Fixtures/valid/disabled-config.json `
             --stdout
+        shell: pwsh
 
-      - name: Package release asset
-        run: |
-          tar -C "$OUTPUT_DIR" -czf "$ASSET_NAME.tar.gz" altinn-apim-policy-compiler
-          sha256sum "$ASSET_NAME.tar.gz" > "$ASSET_NAME.tar.gz.sha256"
+      - name: Package Unix release asset
+        if: runner.os != 'Windows'
+        run: tar -C "$OUTPUT_DIR" -czf "${{ matrix.archive_name }}" "${{ matrix.executable_name }}"
 
-      - name: Upload release assets
+      - name: Package Windows release asset
+        if: runner.os == 'Windows'
+        run: Compress-Archive -Path (Join-Path $env:OUTPUT_DIR '${{ matrix.executable_name }}') -DestinationPath '${{ matrix.archive_name }}' -Force
+        shell: pwsh
+
+      - name: Upload release asset
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            "$ASSET_NAME.tar.gz" \
-            "$ASSET_NAME.tar.gz.sha256" \
-            --clobber
+        run: gh release upload "${{ github.event.release.tag_name }}" "${{ matrix.archive_name }}" --clobber

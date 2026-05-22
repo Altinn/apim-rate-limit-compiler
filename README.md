@@ -158,7 +158,7 @@ Run tests:
 dotnet test tests/Altinn.ApimPolicyCompiler.Tests/Altinn.ApimPolicyCompiler.Tests.csproj --no-restore -v minimal -nr:false
 ```
 
-Publish a Native AOT binary for Linux x64:
+Publish a Native AOT binary for a specific runtime identifier:
 
 ```bash
 dotnet publish src/Altinn.ApimPolicyCompiler.Cli/Altinn.ApimPolicyCompiler.Cli.csproj \
@@ -175,20 +175,22 @@ The published binary is written to:
 src/Altinn.ApimPolicyCompiler.Cli/bin/Release/net10.0/linux-x64/publish/
 ```
 
+The release workflow currently builds `linux-x64`, `osx-arm64`, and `win-x64`.
+
 ## Release Workflow
 
 Creating and publishing a GitHub Release runs `.github/workflows/release.yml`.
 
 The workflow:
 
-- Restores the CLI for `linux-x64`.
+- Restores the CLI for each release runtime identifier.
 - Runs the test suite.
 - Publishes the CLI as a Native AOT binary.
 - Prints `dotnet --info`, `file`, and `ldd` output to make release-run failures diagnosable.
 - Smoke-tests the published binary against a fixture.
-- Uploads `altinn-apim-policy-compiler-linux-x64.tar.gz` and its `.sha256` file to the release.
+- Uploads release archives for `linux-x64`, `osx-arm64`, and `win-x64`.
 
-Downstream pipelines can download the release asset, verify the checksum, and run the binary directly:
+Downstream pipelines can download the matching release asset and run the binary directly:
 
 ```bash
 tar -xzf altinn-apim-policy-compiler-linux-x64.tar.gz
