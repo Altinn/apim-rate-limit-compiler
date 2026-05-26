@@ -1,7 +1,7 @@
 using System.Text.Encodings.Web;
-using Altinn.ApimPolicyCompiler.Core;
+using ApimPolicyCompiler.Core;
 
-namespace Altinn.ApimPolicyCompiler.Cli;
+namespace ApimPolicyCompiler.Cli;
 
 public static class Program
 {
@@ -129,7 +129,7 @@ public static class Program
 
     private static void WriteUsage(TextWriter writer)
     {
-        writer.WriteLine("Usage: altinn-apim-policy-compiler rate-limit --input <file> [--output <file>] [--stdout] [--write-hash <file>] [--fail-on-warning] [--warnings-as-json] [--client-id-variable-name <name>] [--emit-rate-limit-headers]");
+        writer.WriteLine("Usage: apim-policy-compiler rate-limit --input <file> [--output <file>] [--stdout] [--write-hash <file>] [--fail-on-warning] [--warnings-as-json] [--client-id-variable-name <name>] [--emit-rate-limit-headers]");
     }
 
     private static string JsonString(string? value)

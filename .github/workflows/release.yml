@@ -24,22 +24,22 @@ jobs:
         include:
           - rid: linux-x64
             runner: ubuntu-24.04
-            asset_name: altinn-apim-policy-compiler-linux-x64
-            executable_name: altinn-apim-policy-compiler
-            archive_name: altinn-apim-policy-compiler-linux-x64.tar.gz
+            asset_name: apim-policy-compiler-linux-x64
+            executable_name: apim-policy-compiler
+            archive_name: apim-policy-compiler-linux-x64.tar.gz
           - rid: osx-arm64
             runner: macos-15
-            asset_name: altinn-apim-policy-compiler-osx-arm64
-            executable_name: altinn-apim-policy-compiler
-            archive_name: altinn-apim-policy-compiler-osx-arm64.tar.gz
+            asset_name: apim-policy-compiler-osx-arm64
+            executable_name: apim-policy-compiler
+            archive_name: apim-policy-compiler-osx-arm64.tar.gz
           - rid: win-x64
             runner: windows-2025
-            asset_name: altinn-apim-policy-compiler-win-x64
-            executable_name: altinn-apim-policy-compiler.exe
-            archive_name: altinn-apim-policy-compiler-win-x64.zip
+            asset_name: apim-policy-compiler-win-x64
+            executable_name: apim-policy-compiler.exe
+            archive_name: apim-policy-compiler-win-x64.zip
 
     env:
-      PROJECT: src/Altinn.ApimPolicyCompiler.Cli/Altinn.ApimPolicyCompiler.Cli.csproj
+      PROJECT: src/ApimPolicyCompiler.Cli/ApimPolicyCompiler.Cli.csproj
       OUTPUT_DIR: artifacts/${{ matrix.rid }}
       RELEASE_TAG_NAME: ${{ github.event.release.tag_name || inputs.tag_name }}
 
@@ -65,7 +65,7 @@ jobs:
         shell: pwsh
 
       - name: Test
-        run: dotnet test tests/Altinn.ApimPolicyCompiler.Tests/Altinn.ApimPolicyCompiler.Tests.csproj --no-restore -v minimal
+        run: dotnet test tests/ApimPolicyCompiler.Tests/ApimPolicyCompiler.Tests.csproj --no-restore -v minimal
 
       - name: Publish Native AOT
         run: >
@@ -113,7 +113,7 @@ jobs:
       - name: Smoke test binary
         run: |
           & (Join-Path $env:OUTPUT_DIR '${{ matrix.executable_name }}') rate-limit `
-            --input tests/Altinn.ApimPolicyCompiler.Tests/Fixtures/valid/disabled-config.json `
+            --input tests/ApimPolicyCompiler.Tests/Fixtures/valid/disabled-config.json `
             --stdout
         shell: pwsh
 

@@ -1,4 +1,4 @@
-namespace Altinn.ApimPolicyCompiler.Core;
+namespace ApimPolicyCompiler.Core;
 
 public sealed record CompilerOptions(string ClientIdVariableName, bool EmitRateLimitHeaders)
 {

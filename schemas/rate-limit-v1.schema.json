@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/Altinn/altinn-apim-policy-compiler/main/schemas/rate-limit-v1.schema.json",
-  "title": "Altinn APIM rate-limit policy configuration v1",
-  "description": "Configuration consumed by altinn-apim-policy-compiler to generate Azure API Management rate-limit policy fragment XML.",
+  "$id": "https://raw.githubusercontent.com/Altinn/apim-policy-compiler/main/schemas/rate-limit-v1.schema.json",
+  "title": "APIM rate-limit policy configuration v1",
+  "description": "Configuration consumed by apim-policy-compiler to generate Azure API Management rate-limit policy fragment XML.",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "scope", "enabled", "rules"],
@@ -10,7 +10,7 @@
     "$schema": {
       "type": "string",
       "description": "Optional schema reference for editors and CI validation.",
-      "const": "https://raw.githubusercontent.com/Altinn/altinn-apim-policy-compiler/main/schemas/rate-limit-v1.schema.json"
+      "const": "https://raw.githubusercontent.com/Altinn/apim-policy-compiler/main/schemas/rate-limit-v1.schema.json"
     },
     "version": {
       "type": "integer",

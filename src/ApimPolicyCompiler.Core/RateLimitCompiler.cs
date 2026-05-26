@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Xml;
 using System.Xml.Linq;
 
-namespace Altinn.ApimPolicyCompiler.Core;
+namespace ApimPolicyCompiler.Core;
 
 public static class RateLimitCompiler
 {

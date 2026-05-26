@@ -1,8 +1,8 @@
 using System.Xml.Linq;
-using Altinn.ApimPolicyCompiler.Cli;
-using Altinn.ApimPolicyCompiler.Core;
+using ApimPolicyCompiler.Cli;
+using ApimPolicyCompiler.Core;
 
-namespace Altinn.ApimPolicyCompiler.Tests;
+namespace ApimPolicyCompiler.Tests;
 
 public sealed class CompilerSnapshotTests
 {

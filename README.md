@@ -1,14 +1,14 @@
-# Altinn APIM Policy Compiler
+# APIM Policy Compiler
 
-Deterministic .NET 10 CLI for compiling Altinn rate-limit JSON into Azure API Management policy fragment XML.
+Deterministic .NET 10 CLI for compiling rate-limit JSON into Azure API Management policy fragment XML.
 
 The compiler is intended for CI pipelines that keep rate-limit configuration as reviewed JSON and publish generated APIM `policyFragments` as build artifacts or deployment inputs.
 
 ## Projects
 
-- `src/Altinn.ApimPolicyCompiler.Core`: JSON model, validation, diagnostics, hashing, and XML generation.
-- `src/Altinn.ApimPolicyCompiler.Cli`: AOT-friendly command-line entrypoint.
-- `tests/Altinn.ApimPolicyCompiler.Tests`: snapshot-focused tests for valid XML and invalid diagnostics.
+- `src/ApimPolicyCompiler.Core`: JSON model, validation, diagnostics, hashing, and XML generation.
+- `src/ApimPolicyCompiler.Cli`: AOT-friendly command-line entrypoint.
+- `tests/ApimPolicyCompiler.Tests`: snapshot-focused tests for valid XML and invalid diagnostics.
 
 ## Requirements
 
@@ -20,7 +20,7 @@ The compiler is intended for CI pipelines that keep rate-limit configuration as 
 Compile a rate-limit file to an APIM fragment:
 
 ```bash
-dotnet run --project src/Altinn.ApimPolicyCompiler.Cli -- \
+dotnet run --project src/ApimPolicyCompiler.Cli -- \
   rate-limit \
   --input rate-limits/dialogporten.json \
   --output generated/rate-limit-dialogporten.fragment.xml
@@ -29,7 +29,7 @@ dotnet run --project src/Altinn.ApimPolicyCompiler.Cli -- \
 The published native binary uses the same command shape:
 
 ```bash
-altinn-apim-policy-compiler rate-limit \
+apim-policy-compiler rate-limit \
   --input rate-limits/dialogporten.json \
   --output generated/rate-limit-dialogporten.fragment.xml
 ```
@@ -59,7 +59,7 @@ Top-level shape:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/Altinn/altinn-apim-policy-compiler/main/schemas/rate-limit-v1.schema.json",
+  "$schema": "https://raw.githubusercontent.com/Altinn/apim-policy-compiler/main/schemas/rate-limit-v1.schema.json",
   "version": 1,
   "scope": "dialogporten",
   "enabled": true,
@@ -108,7 +108,7 @@ Supported values:
 The canonical JSON Schema for v1 is published at:
 
 ```text
-https://raw.githubusercontent.com/Altinn/altinn-apim-policy-compiler/main/schemas/rate-limit-v1.schema.json
+https://raw.githubusercontent.com/Altinn/apim-policy-compiler/main/schemas/rate-limit-v1.schema.json
 ```
 
 Product repositories can reference that URL in the top-level `$schema` property to get editor and CI validation while keeping the file directly consumable by the compiler.
@@ -156,12 +156,13 @@ Errors fail compilation:
 - Unknown JSON properties.
 - Duplicate rule IDs.
 - Unsafe `scope` or `id` characters. Only ASCII letters, digits, `-`, and `_` are allowed.
-- Missing or invalid `calls`, `renewalPeriod`, `methods`, `pathMode`, or `keyMode`.
+- Missing or invalid `calls`, `renewalPeriod`, `methods`, `pathMode`, or `keyMode` for `limit` rules.
+- Missing or invalid `methods` or `pathMode` for `exclude` rules.
 - `calls <= 0`.
 - `renewalPeriod <= 0` or `renewalPeriod > 300`.
 - `exact` or `prefix` path modes without `path`.
 - `client-id-claim` without `keyClaimName`.
-- Unsupported methods, path modes, or key modes.
+- Unsupported actions, methods, path modes, or key modes.
 - Generated XML that cannot be parsed as XML.
 
 Warnings do not fail compilation unless `--fail-on-warning` is set:
@@ -174,13 +175,13 @@ Warnings do not fail compilation unless `--fail-on-warning` is set:
 Run tests:
 
 ```bash
-dotnet test tests/Altinn.ApimPolicyCompiler.Tests/Altinn.ApimPolicyCompiler.Tests.csproj --no-restore -v minimal -nr:false
+dotnet test tests/ApimPolicyCompiler.Tests/ApimPolicyCompiler.Tests.csproj --no-restore -v minimal -nr:false
 ```
 
 Publish a Native AOT binary for a specific runtime identifier:
 
 ```bash
-dotnet publish src/Altinn.ApimPolicyCompiler.Cli/Altinn.ApimPolicyCompiler.Cli.csproj \
+dotnet publish src/ApimPolicyCompiler.Cli/ApimPolicyCompiler.Cli.csproj \
   -c Release \
   -r linux-x64 \
   -p:PublishAot=true \
@@ -191,7 +192,7 @@ dotnet publish src/Altinn.ApimPolicyCompiler.Cli/Altinn.ApimPolicyCompiler.Cli.c
 The published binary is written to:
 
 ```text
-src/Altinn.ApimPolicyCompiler.Cli/bin/Release/net10.0/linux-x64/publish/
+src/ApimPolicyCompiler.Cli/bin/Release/net10.0/linux-x64/publish/
 ```
 
 The release workflow currently builds `linux-x64`, `osx-arm64`, and `win-x64`.
@@ -212,8 +213,8 @@ The workflow:
 Downstream pipelines can download the matching release asset and run the binary directly:
 
 ```bash
-tar -xzf altinn-apim-policy-compiler-linux-x64.tar.gz
-./altinn-apim-policy-compiler rate-limit \
+tar -xzf apim-policy-compiler-linux-x64.tar.gz
+./apim-policy-compiler rate-limit \
   --input rate-limits/dialogporten.json \
   --output generated/rate-limit-dialogporten.fragment.xml \
   --write-hash generated/rate-limit-dialogporten.sha256 \
@@ -225,7 +226,7 @@ tar -xzf altinn-apim-policy-compiler-linux-x64.tar.gz
 Valid fixtures live in:
 
 ```text
-tests/Altinn.ApimPolicyCompiler.Tests/Fixtures/valid
+tests/ApimPolicyCompiler.Tests/Fixtures/valid
 ```
 
 Each valid `*.json` file has a matching `*.fragment.xml.snap`.
@@ -233,7 +234,7 @@ Each valid `*.json` file has a matching `*.fragment.xml.snap`.
 Invalid fixtures live in:
 
 ```text
-tests/Altinn.ApimPolicyCompiler.Tests/Fixtures/invalid
+tests/ApimPolicyCompiler.Tests/Fixtures/invalid
 ```
 
 Each invalid `*.json` file has a matching `*.diagnostics.snap`.

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Altinn.ApimPolicyCompiler.Core;
+namespace ApimPolicyCompiler.Core;
 
 public sealed class RateLimitConfig
 {

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Altinn.ApimPolicyCompiler.Core;
+namespace ApimPolicyCompiler.Core;
 
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,

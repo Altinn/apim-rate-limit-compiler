@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Altinn.ApimPolicyCompiler.Core\Altinn.ApimPolicyCompiler.Core.csproj" />
+    <ProjectReference Include="..\ApimPolicyCompiler.Core\ApimPolicyCompiler.Core.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -9,7 +9,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AssemblyName>altinn-apim-policy-compiler</AssemblyName>
+    <AssemblyName>apim-policy-compiler</AssemblyName>
     <InvariantGlobalization>true</InvariantGlobalization>
     <IsTrimmable>true</IsTrimmable>
     <TrimMode>full</TrimMode>

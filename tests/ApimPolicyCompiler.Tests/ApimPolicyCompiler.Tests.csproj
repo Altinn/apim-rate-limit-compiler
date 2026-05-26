@@ -19,8 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Altinn.ApimPolicyCompiler.Core\Altinn.ApimPolicyCompiler.Core.csproj" />
-    <ProjectReference Include="..\..\src\Altinn.ApimPolicyCompiler.Cli\Altinn.ApimPolicyCompiler.Cli.csproj" />
+    <ProjectReference Include="..\..\src\ApimPolicyCompiler.Core\ApimPolicyCompiler.Core.csproj" />
+    <ProjectReference Include="..\..\src\ApimPolicyCompiler.Cli\ApimPolicyCompiler.Cli.csproj" />
   </ItemGroup>
 
   <ItemGroup>
