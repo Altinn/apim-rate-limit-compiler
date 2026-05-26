@@ -42,6 +42,8 @@ Options:
 - `--write-hash <file>`: write SHA-256 hash of the generated XML.
 - `--fail-on-warning`: return exit code `1` when validation warnings are produced.
 - `--warnings-as-json`: write diagnostics as JSON to stderr.
+- `--client-id-variable-name <name>`: override the APIM context variable used for resolved client IDs. Defaults to `oauthClientId`.
+- `--emit-rate-limit-headers`: emit `X-RateLimit-Remaining-*` and `X-RateLimit-Limit-*` headers.
 
 At least one of `--output` or `--stdout` is required.
 
@@ -71,6 +73,7 @@ Rule shape:
 {
   "id": "default",
   "enabled": true,
+  "action": "limit",
   "methods": ["GET", "POST"],
   "pathMode": "prefix",
   "path": "/dialogporten",
@@ -82,11 +85,25 @@ Rule shape:
 
 Supported values:
 
+- `action`: `limit` or `exclude`. Defaults to `limit` when omitted.
 - `methods`: `["*"]` or explicit methods: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `TRACE`.
 - `pathMode`: `any`, `exact`, `prefix`.
 - `keyMode`: `client-id`, `client-id-ip`, `client-id-claim`.
 
-`keyClaimName` is required when `keyMode` is `client-id-claim`.
+`keyMode`, `calls`, and `renewalPeriod` are required for `limit` rules. `keyClaimName` is required when `keyMode` is `client-id-claim`.
+
+`exclude` rules are evaluated before all `limit` rules. If any enabled exclude rule matches, the generated fragment skips all rate limiting for that request:
+
+```json
+{
+  "id": "health-exempt",
+  "enabled": true,
+  "action": "exclude",
+  "methods": ["GET"],
+  "pathMode": "exact",
+  "path": "/dialogporten/health"
+}
+```
 
 The canonical JSON Schema for v1 is published at:
 
@@ -108,19 +125,21 @@ Disabled rules are ignored.
 
 The output is APIM fragment XML rooted at `<fragment>`.
 
-Generated fragments always use `context.Variables["oauthClientId"]` as the client ID source. The fragment starts with a deterministic preamble that:
+Generated fragments use `context.Variables["oauthClientId"]` as the client ID source by default. This variable name can be changed with `--client-id-variable-name`.
 
-1. Leaves `oauthClientId` unchanged if it is already set and non-empty.
+The fragment starts with a deterministic preamble that:
+
+1. Leaves the configured client ID variable unchanged if it is already set and non-empty.
 2. Reads the `Authorization` header otherwise.
 3. Parses non-empty `Bearer` tokens as JWT.
-4. Sets `oauthClientId` from the JWT `client_id` claim when present.
-5. Sets `oauthClientId` to an empty string when no client ID can be resolved.
+4. Sets the configured client ID variable from the JWT `client_id` claim when present.
+5. Sets the configured client ID variable to an empty string when no client ID can be resolved.
 
-Rate limiting is skipped when `oauthClientId` is empty.
+Rate limiting is skipped when the configured client ID variable is empty.
 
 Generated rules use static `choose`/`when` blocks and `rate-limit-by-key` statements. Multiple matching rules emit multiple `rate-limit-by-key` statements, so burst and sustained limits can both apply.
 
-Generated headers are stable:
+Generated headers are stable. `Retry-After` is always configured. `X-RateLimit-*` headers are emitted only when `--emit-rate-limit-headers` is set:
 
 - `Retry-After`
 - `X-RateLimit-Remaining-{Scope}-{RuleId}`

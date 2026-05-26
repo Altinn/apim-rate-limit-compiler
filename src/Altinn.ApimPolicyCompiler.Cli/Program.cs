@@ -31,7 +31,8 @@ public static class Program
             return 1;
         }
 
-        var result = RateLimitCompiler.CompileJson(json);
+        var compilerOptions = new CompilerOptions(options.ClientIdVariableName!, options.EmitRateLimitHeaders);
+        var result = RateLimitCompiler.CompileJson(json, compilerOptions);
         var hasWarningFailure = options.FailOnWarning && result.Warnings.Count > 0;
         WriteDiagnostics(result.Diagnostics, options.WarningsAsJson, hasWarningFailure ? DiagnosticSeverity.Error : null, stderr);
 
@@ -128,7 +129,7 @@ public static class Program
 
     private static void WriteUsage(TextWriter writer)
     {
-        writer.WriteLine("Usage: altinn-apim-policy-compiler rate-limit --input <file> [--output <file>] [--stdout] [--write-hash <file>] [--fail-on-warning] [--warnings-as-json]");
+        writer.WriteLine("Usage: altinn-apim-policy-compiler rate-limit --input <file> [--output <file>] [--stdout] [--write-hash <file>] [--fail-on-warning] [--warnings-as-json] [--client-id-variable-name <name>] [--emit-rate-limit-headers]");
     }
 
     private static string JsonString(string? value)
@@ -151,6 +152,10 @@ internal sealed class CliOptions
 
     public bool WarningsAsJson { get; private init; }
 
+    public string? ClientIdVariableName { get; private init; }
+
+    public bool EmitRateLimitHeaders { get; private init; }
+
     public string? Error { get; private init; }
 
     public static CliOptions Parse(string[] args)
@@ -166,6 +171,8 @@ internal sealed class CliOptions
         var stdout = false;
         var failOnWarning = false;
         var warningsAsJson = false;
+        var clientIdVariableName = CompilerOptions.Default.ClientIdVariableName;
+        var emitRateLimitHeaders = false;
 
         for (var i = 1; i < args.Length; i++)
         {
@@ -198,6 +205,19 @@ internal sealed class CliOptions
                 case "--warnings-as-json":
                     warningsAsJson = true;
                     break;
+                case "--client-id-variable-name":
+                    if (!ReadValue(args, ref i, out clientIdVariableName))
+                    {
+                        return new CliOptions { Error = "--client-id-variable-name requires a value." };
+                    }
+                    if (!IsSafeVariableName(clientIdVariableName))
+                    {
+                        return new CliOptions { Error = "--client-id-variable-name may only contain letters, digits, '-' and '_'." };
+                    }
+                    break;
+                case "--emit-rate-limit-headers":
+                    emitRateLimitHeaders = true;
+                    break;
                 default:
                     return new CliOptions { Error = $"Unknown argument '{args[i]}'." };
             }
@@ -220,7 +240,9 @@ internal sealed class CliOptions
             HashPath = hash,
             Stdout = stdout,
             FailOnWarning = failOnWarning,
-            WarningsAsJson = warningsAsJson
+            WarningsAsJson = warningsAsJson,
+            ClientIdVariableName = clientIdVariableName,
+            EmitRateLimitHeaders = emitRateLimitHeaders
         };
     }
 
@@ -233,6 +255,24 @@ internal sealed class CliOptions
         }
 
         value = args[++index];
+        return true;
+    }
+
+    private static bool IsSafeVariableName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        foreach (var c in value)
+        {
+            if (!char.IsAsciiLetterOrDigit(c) && c != '-' && c != '_')
+            {
+                return false;
+            }
+        }
+
         return true;
     }
 }

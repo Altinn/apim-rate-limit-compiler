@@ -32,6 +32,9 @@ public sealed class RateLimitRule
     [JsonPropertyName("enabled")]
     public bool Enabled { get; set; } = true;
 
+    [JsonPropertyName("action")]
+    public string? Action { get; set; }
+
     [JsonPropertyName("methods")]
     public List<string>? Methods { get; set; }
 

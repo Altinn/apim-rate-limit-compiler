@@ -38,10 +38,7 @@
         "id",
         "enabled",
         "methods",
-        "pathMode",
-        "keyMode",
-        "calls",
-        "renewalPeriod"
+        "pathMode"
       ],
       "properties": {
         "id": {
@@ -50,6 +47,10 @@
         },
         "enabled": {
           "type": "boolean"
+        },
+        "action": {
+          "enum": ["limit", "exclude"],
+          "default": "limit"
         },
         "methods": {
           "oneOf": [
@@ -123,6 +124,21 @@
           },
           "then": {
             "required": ["keyClaimName"]
+          }
+        },
+        {
+          "if": {
+            "not": {
+              "properties": {
+                "action": {
+                  "const": "exclude"
+                }
+              },
+              "required": ["action"]
+            }
+          },
+          "then": {
+            "required": ["keyMode", "calls", "renewalPeriod"]
           }
         }
       ]

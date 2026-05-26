@@ -6,7 +6,7 @@
   </choose>
   <choose>
     <when condition="@(!string.IsNullOrEmpty((string)context.Variables[&quot;oauthClientId&quot;]) &amp;&amp; ((context.Request.Method == &quot;POST&quot;) &amp;&amp; true))">
-      <rate-limit-by-key calls="15" renewal-period="60" counter-key="@(&quot;dialogporten:write-any:client-id:&quot; + (string)context.Variables[&quot;oauthClientId&quot;])" remaining-calls-header-name="X-RateLimit-Remaining-dialogporten-write-any" total-calls-header-name="X-RateLimit-Limit-dialogporten-write-any" retry-after-header-name="Retry-After" />
+      <rate-limit-by-key calls="15" renewal-period="60" counter-key="@(&quot;dialogporten:write-any:client-id:&quot; + (string)context.Variables[&quot;oauthClientId&quot;])" retry-after-header-name="Retry-After" />
     </when>
   </choose>
 </fragment>

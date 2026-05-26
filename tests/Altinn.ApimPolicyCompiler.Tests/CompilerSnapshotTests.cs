@@ -65,6 +65,53 @@ public sealed class CompilerSnapshotTests
     }
 
     [Fact]
+    public void Rate_limit_headers_are_omitted_by_default_and_emitted_when_requested()
+    {
+        var json = File.ReadAllText(Path.Combine(FixtureRoot, "valid", "default-prefix-rule.json"));
+
+        var defaultResult = RateLimitCompiler.CompileJson(json);
+        var optInResult = RateLimitCompiler.CompileJson(json, CompilerOptions.Default with { EmitRateLimitHeaders = true });
+
+        Assert.True(defaultResult.Success);
+        Assert.DoesNotContain("X-RateLimit-Remaining-", defaultResult.Xml);
+        Assert.DoesNotContain("X-RateLimit-Limit-", defaultResult.Xml);
+        Assert.Contains("retry-after-header-name=\"Retry-After\"", defaultResult.Xml);
+
+        Assert.True(optInResult.Success);
+        Assert.Contains("X-RateLimit-Remaining-dialogporten-default", optInResult.Xml);
+        Assert.Contains("X-RateLimit-Limit-dialogporten-default", optInResult.Xml);
+    }
+
+    [Fact]
+    public void Client_id_variable_name_can_be_overridden()
+    {
+        var json = File.ReadAllText(Path.Combine(FixtureRoot, "valid", "default-prefix-rule.json"));
+
+        var result = RateLimitCompiler.CompileJson(json, CompilerOptions.Default with { ClientIdVariableName = "customClientId" });
+
+        Assert.True(result.Success);
+        Assert.Contains("context.Variables[&quot;customClientId&quot;]", result.Xml);
+        Assert.Contains("name=\"customClientId\"", result.Xml);
+        Assert.DoesNotContain("context.Variables[&quot;oauthClientId&quot;]", result.Xml);
+        Assert.DoesNotContain("name=\"oauthClientId\"", result.Xml);
+    }
+
+    [Fact]
+    public void Exclude_rules_are_evaluated_before_limit_rules()
+    {
+        var json = File.ReadAllText(Path.Combine(FixtureRoot, "valid", "exclude-exact-path.json"));
+
+        var result = RateLimitCompiler.CompileJson(json);
+
+        Assert.True(result.Success);
+        var document = XDocument.Parse(result.Xml!);
+        var outerChoose = document.Root!.Elements("choose").Skip(1).Single();
+        Assert.Contains("/dialogporten/health", outerChoose.Element("when")!.Attribute("condition")!.Value);
+        Assert.Empty(outerChoose.Element("when")!.Elements("rate-limit-by-key"));
+        Assert.NotNull(outerChoose.Element("otherwise")!.Descendants("rate-limit-by-key").Single());
+    }
+
+    [Fact]
     public void Cli_exit_codes_match_contract()
     {
         var valid = Path.Combine(FixtureRoot, "valid", "disabled-config.json");
@@ -73,6 +120,7 @@ public sealed class CompilerSnapshotTests
         Assert.Equal(2, Program.Run([], TextWriter.Null, TextWriter.Null));
         Assert.Equal(0, Program.Run(["rate-limit", "--input", valid, "--stdout"], TextWriter.Null, TextWriter.Null));
         Assert.Equal(1, Program.Run(["rate-limit", "--input", invalid, "--stdout"], TextWriter.Null, TextWriter.Null));
+        Assert.Equal(2, Program.Run(["rate-limit", "--input", valid, "--stdout", "--client-id-variable-name", "bad/name"], TextWriter.Null, TextWriter.Null));
     }
 
     public static IEnumerable<object[]> ValidFixtures()

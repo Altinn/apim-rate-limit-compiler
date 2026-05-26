@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "scope": "dialogporten",
+  "enabled": true,
+  "rules": [
+    {
+      "id": "all-dialogporten",
+      "enabled": true,
+      "methods": ["*"],
+      "pathMode": "prefix",
+      "path": "/dialogporten",
+      "keyMode": "client-id",
+      "calls": 120,
+      "renewalPeriod": 60
+    },
+    {
+      "id": "health-exempt",
+      "enabled": true,
+      "action": "exclude",
+      "methods": ["GET"],
+      "pathMode": "exact",
+      "path": "/dialogporten/health"
+    }
+  ]
+}

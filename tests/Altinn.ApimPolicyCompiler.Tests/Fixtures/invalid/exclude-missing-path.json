@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "scope": "dialogporten",
+  "enabled": true,
+  "rules": [
+    {
+      "id": "bad",
+      "enabled": true,
+      "action": "exclude",
+      "methods": ["GET"],
+      "pathMode": "exact"
+    }
+  ]
+}

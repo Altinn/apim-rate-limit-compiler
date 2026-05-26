@@ -6,12 +6,12 @@
   </choose>
   <choose>
     <when condition="@(!string.IsNullOrEmpty((string)context.Variables[&quot;oauthClientId&quot;]) &amp;&amp; (true &amp;&amp; context.Request.Url.Path.StartsWith(&quot;/dialogporten&quot;, StringComparison.Ordinal)))">
-      <rate-limit-by-key calls="20" renewal-period="10" counter-key="@(&quot;dialogporten:burst:client-id:&quot; + (string)context.Variables[&quot;oauthClientId&quot;])" remaining-calls-header-name="X-RateLimit-Remaining-dialogporten-burst" total-calls-header-name="X-RateLimit-Limit-dialogporten-burst" retry-after-header-name="Retry-After" />
+      <rate-limit-by-key calls="20" renewal-period="10" counter-key="@(&quot;dialogporten:burst:client-id:&quot; + (string)context.Variables[&quot;oauthClientId&quot;])" retry-after-header-name="Retry-After" />
     </when>
   </choose>
   <choose>
     <when condition="@(!string.IsNullOrEmpty((string)context.Variables[&quot;oauthClientId&quot;]) &amp;&amp; (true &amp;&amp; context.Request.Url.Path.StartsWith(&quot;/dialogporten&quot;, StringComparison.Ordinal)))">
-      <rate-limit-by-key calls="300" renewal-period="300" counter-key="@(&quot;dialogporten:sustained:client-id:&quot; + (string)context.Variables[&quot;oauthClientId&quot;])" remaining-calls-header-name="X-RateLimit-Remaining-dialogporten-sustained" total-calls-header-name="X-RateLimit-Limit-dialogporten-sustained" retry-after-header-name="Retry-After" />
+      <rate-limit-by-key calls="300" renewal-period="300" counter-key="@(&quot;dialogporten:sustained:client-id:&quot; + (string)context.Variables[&quot;oauthClientId&quot;])" retry-after-header-name="Retry-After" />
     </when>
   </choose>
 </fragment>
