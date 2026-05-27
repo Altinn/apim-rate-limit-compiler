@@ -144,7 +144,7 @@ public static class RateLimitCompiler
                 diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1109", "renewalPeriod must be between 1 and 300 seconds.", $"{target}.renewalPeriod"));
             }
 
-            if (GetAction(rule) == "limit" && rule is { Enabled: true, Calls: >= 10000 })
+            if (GetAction(rule) == "limit" && rule is { Enabled: true, Calls: >= 20000 })
             {
                 diagnostics.Add(new Diagnostic(DiagnosticSeverity.Warning, "APIMRL2004", "Rule has a very high call limit.", $"{target}.calls"));
             }

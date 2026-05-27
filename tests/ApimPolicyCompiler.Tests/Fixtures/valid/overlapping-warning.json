@@ -20,7 +20,7 @@
       "id": "read",
       "enabled": true,
       "keyMode": "client-id",
-      "calls": 10000,
+      "calls": 20000,
       "renewalPeriod": 60,
       "match": {
         "methods": [

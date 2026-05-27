@@ -11,7 +11,7 @@
   </choose>
   <choose>
     <when condition="@(!string.IsNullOrEmpty((string)context.Variables[&quot;oauthClientId&quot;]) &amp;&amp; ((context.Request.Method == &quot;GET&quot;) &amp;&amp; context.Request.Url.Path.StartsWith(&quot;/dialogporten&quot;, StringComparison.Ordinal) &amp;&amp; true))">
-      <rate-limit-by-key calls="10000" renewal-period="60" counter-key="@(&quot;dialogporten:read:client-id:&quot; + (string)context.Variables[&quot;oauthClientId&quot;])" retry-after-header-name="Retry-After" />
+      <rate-limit-by-key calls="20000" renewal-period="60" counter-key="@(&quot;dialogporten:read:client-id:&quot; + (string)context.Variables[&quot;oauthClientId&quot;])" retry-after-header-name="Retry-After" />
     </when>
   </choose>
 </fragment>
