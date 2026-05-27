@@ -6,4 +6,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/ApimPolicyCompiler.Tests/ApimPolicyCompiler.Tests.csproj" />
   </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/ClientIdExtractorBench/ClientIdExtractorBench.csproj" />
+  </Folder>
 </Solution>

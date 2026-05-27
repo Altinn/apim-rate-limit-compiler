@@ -163,9 +163,11 @@ The fragment starts with a deterministic preamble that:
 
 1. Leaves the configured client ID variable unchanged if it is already set and non-empty.
 2. Reads the `Authorization` header otherwise.
-3. Parses non-empty `Bearer` tokens as JWT.
-4. Sets the configured client ID variable from the JWT `client_id` claim when present.
+3. Extracts the JWT payload from non-empty `Bearer` tokens.
+4. Sets the configured client ID variable from the first `client_id` claim found in the payload.
 5. Sets the configured client ID variable to an empty string when no client ID can be resolved.
+
+The generated `client_id` extractor is deliberately narrow and optimized for the expected token shape. It scans the decoded payload bytes for a string-valued low-ASCII `client_id` claim, but it does not validate the token and does not perform general JSON parsing.
 
 Rate limiting is skipped when the configured client ID variable is empty.
 
@@ -207,6 +209,12 @@ Run tests:
 
 ```bash
 dotnet test tests/ApimPolicyCompiler.Tests/ApimPolicyCompiler.Tests.csproj --no-restore -v minimal -nr:false
+```
+
+Run the local client ID extractor benchmark:
+
+```bash
+dotnet run -c Release --project benchmarks/ClientIdExtractorBench/ClientIdExtractorBench.csproj -- --iterations 3000000
 ```
 
 Publish a Native AOT binary for a specific runtime identifier:
