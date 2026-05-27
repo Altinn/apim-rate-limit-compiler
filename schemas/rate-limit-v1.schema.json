@@ -55,11 +55,7 @@
           "$ref": "#/$defs/match"
         },
         "keyMode": {
-          "enum": ["client-id", "client-id-ip", "client-id-claim"]
-        },
-        "keyClaimName": {
-          "type": "string",
-          "minLength": 1
+          "enum": ["client-id", "client-id-ip"]
         },
         "calls": {
           "type": "integer",
@@ -72,19 +68,6 @@
         }
       },
       "allOf": [
-        {
-          "if": {
-            "properties": {
-              "keyMode": {
-                "const": "client-id-claim"
-              }
-            },
-            "required": ["keyMode"]
-          },
-          "then": {
-            "required": ["keyClaimName"]
-          }
-        },
         {
           "if": {
             "not": {

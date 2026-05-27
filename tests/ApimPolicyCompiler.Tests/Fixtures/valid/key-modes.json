@@ -30,21 +30,6 @@
         "pathMode": "prefix",
         "path": "/client-ip"
       }
-    },
-    {
-      "id": "client-claim",
-      "enabled": true,
-      "keyMode": "client-id-claim",
-      "keyClaimName": "consumer",
-      "calls": 10,
-      "renewalPeriod": 60,
-      "match": {
-        "methods": [
-          "GET"
-        ],
-        "pathMode": "prefix",
-        "path": "/client-claim"
-      }
     }
   ]
 }

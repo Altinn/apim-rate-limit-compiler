@@ -41,9 +41,6 @@ public sealed class RateLimitRule
     [JsonPropertyName("keyMode")]
     public string? KeyMode { get; set; }
 
-    [JsonPropertyName("keyClaimName")]
-    public string? KeyClaimName { get; set; }
-
     [JsonPropertyName("calls")]
     public int Calls { get; set; }
 

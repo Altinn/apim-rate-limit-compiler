@@ -23,7 +23,7 @@ public static class RateLimitCompiler
 
     private static readonly HashSet<string> ValidKeyModes = new(StringComparer.Ordinal)
     {
-        "client-id", "client-id-ip", "client-id-claim"
+        "client-id", "client-id-ip"
     };
 
     private static readonly HashSet<string> ValidActions = new(StringComparer.Ordinal)
@@ -132,11 +132,6 @@ public static class RateLimitCompiler
             if (GetAction(rule) == "limit")
             {
                 ValidateMode(diagnostics, ValidKeyModes, rule.KeyMode, "keyMode", "APIMRL1105", target);
-            }
-
-            if (GetAction(rule) == "limit" && rule.KeyMode == "client-id-claim" && string.IsNullOrWhiteSpace(rule.KeyClaimName))
-            {
-                diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1107", "keyClaimName is required when keyMode is client-id-claim.", $"{target}.keyClaimName"));
             }
 
             if (GetAction(rule) == "limit" && rule.Calls <= 0)
@@ -612,7 +607,6 @@ public static class RateLimitCompiler
                     + context.Request.IpAddress
                 )
                 """),
-            "client-id-claim" => BuildClientIdCounterKey($"{prefix}{rule.KeyClaimName!}:", clientIdVariableName),
             _ => BuildClientIdCounterKey(prefix, clientIdVariableName)
         };
     }

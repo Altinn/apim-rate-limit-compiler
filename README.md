@@ -96,9 +96,9 @@ Supported values:
 - `match.pathMode`: `any`, `exact`, `prefix`.
 - `match.caller.clientIds`: optional client IDs that the rule applies to.
 - `match.caller.scopes`: optional OAuth scopes that the rule applies to.
-- `keyMode`: `client-id`, `client-id-ip`, `client-id-claim`.
+- `keyMode`: `client-id`, `client-id-ip`.
 
-`keyMode`, `calls`, and `renewalPeriod` are required for `limit` rules. `keyClaimName` is required when `keyMode` is `client-id-claim`.
+`keyMode`, `calls`, and `renewalPeriod` are required for `limit` rules.
 
 If both `match.caller.clientIds` and `match.caller.scopes` are present, both must match. Scope matching uses a padded string match against the bearer token's `scope` claim, with `scp` used as a fallback.
 
@@ -190,7 +190,6 @@ Errors fail compilation:
 - `calls <= 0`.
 - `renewalPeriod <= 0` or `renewalPeriod > 300`.
 - `exact` or `prefix` path modes without `path`.
-- `client-id-claim` without `keyClaimName`.
 - Unsupported actions, methods, path modes, or key modes.
 - Generated XML that cannot be parsed as XML.
 
