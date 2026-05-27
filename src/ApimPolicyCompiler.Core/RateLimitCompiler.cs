@@ -414,11 +414,6 @@ public static class RateLimitCompiler
                     {
                         var scopes = jwt.Claims.GetValueOrDefault("scope", "");
 
-                        if (string.IsNullOrEmpty(scopes))
-                        {
-                            scopes = jwt.Claims.GetValueOrDefault("scp", "");
-                        }
-
                         if (!string.IsNullOrWhiteSpace(scopes))
                         {
                             return " " + scopes.Trim() + " ";

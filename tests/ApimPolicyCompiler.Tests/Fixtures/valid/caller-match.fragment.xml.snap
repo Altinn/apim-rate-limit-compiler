@@ -6,7 +6,7 @@
   </choose>
   <choose>
     <when condition="@(!(context.Variables.ContainsKey(&quot;oauthScopes&quot;) &amp;&amp; !string.IsNullOrEmpty((string)context.Variables[&quot;oauthScopes&quot;])))">
-      <set-variable name="oauthScopes" value="@{ var authorization = context.Request.Headers.GetValueOrDefault(&quot;Authorization&quot;, &quot;&quot;); if (!string.IsNullOrEmpty(authorization) &amp;&amp; authorization.StartsWith(&quot;Bearer &quot;, StringComparison.OrdinalIgnoreCase)) { var jwt = authorization.Substring(7).AsJwt(); if (jwt != null) { var scopes = jwt.Claims.GetValueOrDefault(&quot;scope&quot;, &quot;&quot;); if (string.IsNullOrEmpty(scopes)) { scopes = jwt.Claims.GetValueOrDefault(&quot;scp&quot;, &quot;&quot;); } if (!string.IsNullOrWhiteSpace(scopes)) { return &quot; &quot; + scopes.Trim() + &quot; &quot;; } } } return &quot;&quot;; }" />
+      <set-variable name="oauthScopes" value="@{ var authorization = context.Request.Headers.GetValueOrDefault(&quot;Authorization&quot;, &quot;&quot;); if (!string.IsNullOrEmpty(authorization) &amp;&amp; authorization.StartsWith(&quot;Bearer &quot;, StringComparison.OrdinalIgnoreCase)) { var jwt = authorization.Substring(7).AsJwt(); if (jwt != null) { var scopes = jwt.Claims.GetValueOrDefault(&quot;scope&quot;, &quot;&quot;); if (!string.IsNullOrWhiteSpace(scopes)) { return &quot; &quot; + scopes.Trim() + &quot; &quot;; } } } return &quot;&quot;; }" />
     </when>
   </choose>
   <choose>

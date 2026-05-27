@@ -100,7 +100,7 @@ Supported values:
 
 `keyMode`, `calls`, and `renewalPeriod` are required for `limit` rules.
 
-If both `match.caller.clientIds` and `match.caller.scopes` are present, both must match. Scope matching uses a padded string match against the bearer token's `scope` claim, with `scp` used as a fallback.
+If both `match.caller.clientIds` and `match.caller.scopes` are present, both must match. Scope matching uses a padded string match against the bearer token's `scope` claim.
 
 `exclude` rules are evaluated before all `limit` rules. If any enabled exclude rule matches, the generated fragment skips all rate limiting for that request:
 
@@ -112,7 +112,10 @@ If both `match.caller.clientIds` and `match.caller.scopes` are present, both mus
   "match": {
     "methods": ["GET"],
     "pathMode": "exact",
-    "path": "/dialogporten/health"
+    "path": "/dialogporten/health",
+    "caller": {
+      "scopes": ["monitoring:read"]
+    }
   }
 }
 ```
