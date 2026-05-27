@@ -1,17 +1,21 @@
 {
   "version": 1,
-  "scope": "dialogporten",
+  "name": "dialogporten",
   "enabled": true,
   "rules": [
     {
       "id": "disabled",
       "enabled": false,
-      "methods": ["GET"],
-      "pathMode": "exact",
-      "path": "/ignored",
       "keyMode": "client-id",
       "calls": 10,
-      "renewalPeriod": 60
+      "renewalPeriod": 60,
+      "match": {
+        "methods": [
+          "GET"
+        ],
+        "pathMode": "exact",
+        "path": "/ignored"
+      }
     }
   ]
 }

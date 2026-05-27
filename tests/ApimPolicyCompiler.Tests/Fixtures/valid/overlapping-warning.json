@@ -1,26 +1,34 @@
 {
   "version": 1,
-  "scope": "dialogporten",
+  "name": "dialogporten",
   "enabled": true,
   "rules": [
     {
       "id": "all",
       "enabled": true,
-      "methods": ["*"],
-      "pathMode": "any",
       "keyMode": "client-id",
       "calls": 100,
-      "renewalPeriod": 60
+      "renewalPeriod": 60,
+      "match": {
+        "methods": [
+          "*"
+        ],
+        "pathMode": "any"
+      }
     },
     {
       "id": "read",
       "enabled": true,
-      "methods": ["GET"],
-      "pathMode": "prefix",
-      "path": "/dialogporten",
       "keyMode": "client-id",
       "calls": 10000,
-      "renewalPeriod": 60
+      "renewalPeriod": 60,
+      "match": {
+        "methods": [
+          "GET"
+        ],
+        "pathMode": "prefix",
+        "path": "/dialogporten"
+      }
     }
   ]
 }

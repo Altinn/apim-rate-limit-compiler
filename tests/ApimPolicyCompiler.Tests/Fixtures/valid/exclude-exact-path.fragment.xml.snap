@@ -5,10 +5,10 @@
     </when>
   </choose>
   <choose>
-    <when condition="@(((context.Request.Method == &quot;GET&quot;) &amp;&amp; context.Request.Url.Path == &quot;/dialogporten/health&quot;))" />
+    <when condition="@(((context.Request.Method == &quot;GET&quot;) &amp;&amp; context.Request.Url.Path == &quot;/dialogporten/health&quot; &amp;&amp; true))" />
     <otherwise>
       <choose>
-        <when condition="@(!string.IsNullOrEmpty((string)context.Variables[&quot;oauthClientId&quot;]) &amp;&amp; (true &amp;&amp; context.Request.Url.Path.StartsWith(&quot;/dialogporten&quot;, StringComparison.Ordinal)))">
+        <when condition="@(!string.IsNullOrEmpty((string)context.Variables[&quot;oauthClientId&quot;]) &amp;&amp; (true &amp;&amp; context.Request.Url.Path.StartsWith(&quot;/dialogporten&quot;, StringComparison.Ordinal) &amp;&amp; true))">
           <rate-limit-by-key calls="120" renewal-period="60" counter-key="@(&quot;dialogporten:all-dialogporten:client-id:&quot; + (string)context.Variables[&quot;oauthClientId&quot;])" retry-after-header-name="Retry-After" />
         </when>
       </choose>

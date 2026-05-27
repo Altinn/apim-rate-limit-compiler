@@ -1,38 +1,50 @@
 {
   "version": 1,
-  "scope": "dialogporten",
+  "name": "dialogporten",
   "enabled": true,
   "rules": [
     {
       "id": "client",
       "enabled": true,
-      "methods": ["GET"],
-      "pathMode": "prefix",
-      "path": "/client",
       "keyMode": "client-id",
       "calls": 10,
-      "renewalPeriod": 60
+      "renewalPeriod": 60,
+      "match": {
+        "methods": [
+          "GET"
+        ],
+        "pathMode": "prefix",
+        "path": "/client"
+      }
     },
     {
       "id": "client-ip",
       "enabled": true,
-      "methods": ["GET"],
-      "pathMode": "prefix",
-      "path": "/client-ip",
       "keyMode": "client-id-ip",
       "calls": 10,
-      "renewalPeriod": 60
+      "renewalPeriod": 60,
+      "match": {
+        "methods": [
+          "GET"
+        ],
+        "pathMode": "prefix",
+        "path": "/client-ip"
+      }
     },
     {
       "id": "client-claim",
       "enabled": true,
-      "methods": ["GET"],
-      "pathMode": "prefix",
-      "path": "/client-claim",
       "keyMode": "client-id-claim",
       "keyClaimName": "consumer",
       "calls": 10,
-      "renewalPeriod": 60
+      "renewalPeriod": 60,
+      "match": {
+        "methods": [
+          "GET"
+        ],
+        "pathMode": "prefix",
+        "path": "/client-claim"
+      }
     }
   ]
 }

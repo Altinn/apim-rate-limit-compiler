@@ -85,7 +85,7 @@ public sealed class CompilerSnapshotTests
     [Fact]
     public void Client_id_variable_name_can_be_overridden()
     {
-        var json = File.ReadAllText(Path.Combine(FixtureRoot, "valid", "default-prefix-rule.json"));
+        var json = File.ReadAllText(Path.Combine(FixtureRoot, "valid", "caller-match.json"));
 
         var result = RateLimitCompiler.CompileJson(json, CompilerOptions.Default with { ClientIdVariableName = "customClientId" });
 
@@ -94,6 +94,7 @@ public sealed class CompilerSnapshotTests
         Assert.Contains("name=\"customClientId\"", result.Xml);
         Assert.DoesNotContain("context.Variables[&quot;oauthClientId&quot;]", result.Xml);
         Assert.DoesNotContain("name=\"oauthClientId\"", result.Xml);
+        Assert.Contains("(string)context.Variables[&quot;customClientId&quot;] == &quot;partner-a&quot;", result.Xml);
     }
 
     [Fact]
@@ -105,10 +106,23 @@ public sealed class CompilerSnapshotTests
 
         Assert.True(result.Success);
         var document = XDocument.Parse(result.Xml!);
-        var outerChoose = document.Root!.Elements("choose").Skip(1).Single();
+        var outerChoose = document.Root!.Elements("choose").Single(static x => x.Element("otherwise") is not null);
         Assert.Contains("/dialogporten/health", outerChoose.Element("when")!.Attribute("condition")!.Value);
         Assert.Empty(outerChoose.Element("when")!.Elements("rate-limit-by-key"));
         Assert.NotNull(outerChoose.Element("otherwise")!.Descendants("rate-limit-by-key").Single());
+    }
+
+    [Fact]
+    public void Caller_match_supports_client_ids_and_scopes()
+    {
+        var json = File.ReadAllText(Path.Combine(FixtureRoot, "valid", "caller-match.json"));
+
+        var result = RateLimitCompiler.CompileJson(json);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        Assert.Contains("name=\"oauthScopes\"", result.Xml);
+        Assert.Contains("(string)context.Variables[&quot;oauthClientId&quot;] == &quot;partner-a&quot;", result.Xml);
+        Assert.Contains(".Contains(&quot; orders:write &quot;, StringComparison.Ordinal)", result.Xml);
     }
 
     [Fact]

@@ -11,8 +11,8 @@ public sealed class RateLimitConfig
     [JsonPropertyName("version")]
     public int Version { get; set; }
 
-    [JsonPropertyName("scope")]
-    public string? Scope { get; set; }
+    [JsonPropertyName("name")]
+    public string? Name { get; set; }
 
     [JsonPropertyName("enabled")]
     public bool Enabled { get; set; } = true;
@@ -35,14 +35,8 @@ public sealed class RateLimitRule
     [JsonPropertyName("action")]
     public string? Action { get; set; }
 
-    [JsonPropertyName("methods")]
-    public List<string>? Methods { get; set; }
-
-    [JsonPropertyName("pathMode")]
-    public string? PathMode { get; set; }
-
-    [JsonPropertyName("path")]
-    public string? Path { get; set; }
+    [JsonPropertyName("match")]
+    public RateLimitMatch? Match { get; set; }
 
     [JsonPropertyName("keyMode")]
     public string? KeyMode { get; set; }
@@ -55,6 +49,36 @@ public sealed class RateLimitRule
 
     [JsonPropertyName("renewalPeriod")]
     public int RenewalPeriod { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+}
+
+public sealed class RateLimitMatch
+{
+    [JsonPropertyName("methods")]
+    public List<string>? Methods { get; set; }
+
+    [JsonPropertyName("pathMode")]
+    public string? PathMode { get; set; }
+
+    [JsonPropertyName("path")]
+    public string? Path { get; set; }
+
+    [JsonPropertyName("caller")]
+    public RateLimitCallerMatch? Caller { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? ExtensionData { get; set; }
+}
+
+public sealed class RateLimitCallerMatch
+{
+    [JsonPropertyName("clientIds")]
+    public List<string>? ClientIds { get; set; }
+
+    [JsonPropertyName("scopes")]
+    public List<string>? Scopes { get; set; }
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? ExtensionData { get; set; }

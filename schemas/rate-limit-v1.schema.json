@@ -5,7 +5,7 @@
   "description": "Configuration consumed by apim-policy-compiler to generate Azure API Management rate-limit policy fragment XML.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "scope", "enabled", "rules"],
+  "required": ["version", "name", "enabled", "rules"],
   "properties": {
     "$schema": {
       "type": "string",
@@ -16,7 +16,7 @@
       "type": "integer",
       "const": 1
     },
-    "scope": {
+    "name": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_-]+$"
     },
@@ -37,8 +37,7 @@
       "required": [
         "id",
         "enabled",
-        "methods",
-        "pathMode"
+        "match"
       ],
       "properties": {
         "id": {
@@ -52,6 +51,62 @@
           "enum": ["limit", "exclude"],
           "default": "limit"
         },
+        "match": {
+          "$ref": "#/$defs/match"
+        },
+        "keyMode": {
+          "enum": ["client-id", "client-id-ip", "client-id-claim"]
+        },
+        "keyClaimName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calls": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "renewalPeriod": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 300
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "keyMode": {
+                "const": "client-id-claim"
+              }
+            },
+            "required": ["keyMode"]
+          },
+          "then": {
+            "required": ["keyClaimName"]
+          }
+        },
+        {
+          "if": {
+            "not": {
+              "properties": {
+                "action": {
+                  "const": "exclude"
+                }
+              },
+              "required": ["action"]
+            }
+          },
+          "then": {
+            "required": ["keyMode", "calls", "renewalPeriod"]
+          }
+        }
+      ]
+    },
+    "match": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["methods", "pathMode"],
+      "properties": {
         "methods": {
           "oneOf": [
             {
@@ -82,21 +137,8 @@
           "type": "string",
           "minLength": 1
         },
-        "keyMode": {
-          "enum": ["client-id", "client-id-ip", "client-id-claim"]
-        },
-        "keyClaimName": {
-          "type": "string",
-          "minLength": 1
-        },
-        "calls": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "renewalPeriod": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 300
+        "caller": {
+          "$ref": "#/$defs/caller"
         }
       },
       "allOf": [
@@ -112,34 +154,39 @@
           "then": {
             "required": ["path"]
           }
+        }
+      ]
+    },
+    "caller": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "clientIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^\\S+$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "anyOf": [
+        {
+          "required": ["clientIds"]
         },
         {
-          "if": {
-            "properties": {
-              "keyMode": {
-                "const": "client-id-claim"
-              }
-            },
-            "required": ["keyMode"]
-          },
-          "then": {
-            "required": ["keyClaimName"]
-          }
-        },
-        {
-          "if": {
-            "not": {
-              "properties": {
-                "action": {
-                  "const": "exclude"
-                }
-              },
-              "required": ["action"]
-            }
-          },
-          "then": {
-            "required": ["keyMode", "calls", "renewalPeriod"]
-          }
+          "required": ["scopes"]
         }
       ]
     }

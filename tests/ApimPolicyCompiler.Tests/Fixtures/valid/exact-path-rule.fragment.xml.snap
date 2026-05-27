@@ -5,7 +5,7 @@
     </when>
   </choose>
   <choose>
-    <when condition="@(!string.IsNullOrEmpty((string)context.Variables[&quot;oauthClientId&quot;]) &amp;&amp; ((context.Request.Method == &quot;GET&quot;) &amp;&amp; context.Request.Url.Path == &quot;/dialogporten/api/v1/serviceowner/instances&quot;))">
+    <when condition="@(!string.IsNullOrEmpty((string)context.Variables[&quot;oauthClientId&quot;]) &amp;&amp; ((context.Request.Method == &quot;GET&quot;) &amp;&amp; context.Request.Url.Path == &quot;/dialogporten/api/v1/serviceowner/instances&quot; &amp;&amp; true))">
       <rate-limit-by-key calls="30" renewal-period="10" counter-key="@(&quot;dialogporten:instance-read:client-id-ip:&quot; + (string)context.Variables[&quot;oauthClientId&quot;] + &quot;:&quot; + context.Request.IpAddress)" retry-after-header-name="Retry-After" />
     </when>
   </choose>

@@ -1,3 +1,3 @@
-ERROR APIMRL1103 [rules[0].methods]: Unsupported HTTP method 'CONNECT'.
-ERROR APIMRL1104 [rules[0].pathMode]: Unsupported pathMode 'regex'.
+ERROR APIMRL1103 [rules[0].match.methods]: Unsupported HTTP method 'CONNECT'.
+ERROR APIMRL1104 [rules[0].match.pathMode]: Unsupported pathMode 'regex'.
 ERROR APIMRL1105 [rules[0].keyMode]: Unsupported keyMode 'subscription'.

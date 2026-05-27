@@ -1,25 +1,33 @@
 {
   "version": 1,
-  "scope": "dialogporten",
+  "name": "dialogporten",
   "enabled": true,
   "rules": [
     {
       "id": "all-dialogporten",
       "enabled": true,
-      "methods": ["*"],
-      "pathMode": "prefix",
-      "path": "/dialogporten",
       "keyMode": "client-id",
       "calls": 120,
-      "renewalPeriod": 60
+      "renewalPeriod": 60,
+      "match": {
+        "methods": [
+          "*"
+        ],
+        "pathMode": "prefix",
+        "path": "/dialogporten"
+      }
     },
     {
       "id": "health-exempt",
       "enabled": true,
       "action": "exclude",
-      "methods": ["GET"],
-      "pathMode": "exact",
-      "path": "/dialogporten/health"
+      "match": {
+        "methods": [
+          "GET"
+        ],
+        "pathMode": "exact",
+        "path": "/dialogporten/health"
+      }
     }
   ]
 }

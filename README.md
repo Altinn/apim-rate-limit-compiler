@@ -61,7 +61,7 @@ Top-level shape:
 {
   "$schema": "https://raw.githubusercontent.com/Altinn/apim-policy-compiler/main/schemas/rate-limit-v1.schema.json",
   "version": 1,
-  "scope": "dialogporten",
+  "name": "dialogporten",
   "enabled": true,
   "rules": []
 }
@@ -74,9 +74,15 @@ Rule shape:
   "id": "default",
   "enabled": true,
   "action": "limit",
-  "methods": ["GET", "POST"],
-  "pathMode": "prefix",
-  "path": "/dialogporten",
+  "match": {
+    "methods": ["GET", "POST"],
+    "pathMode": "prefix",
+    "path": "/dialogporten",
+    "caller": {
+      "clientIds": ["client-a"],
+      "scopes": ["dialogporten:read"]
+    }
+  },
   "keyMode": "client-id",
   "calls": 120,
   "renewalPeriod": 60
@@ -86,11 +92,15 @@ Rule shape:
 Supported values:
 
 - `action`: `limit` or `exclude`. Defaults to `limit` when omitted.
-- `methods`: `["*"]` or explicit methods: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `TRACE`.
-- `pathMode`: `any`, `exact`, `prefix`.
+- `match.methods`: `["*"]` or explicit methods: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS`, `TRACE`.
+- `match.pathMode`: `any`, `exact`, `prefix`.
+- `match.caller.clientIds`: optional client IDs that the rule applies to.
+- `match.caller.scopes`: optional OAuth scopes that the rule applies to.
 - `keyMode`: `client-id`, `client-id-ip`, `client-id-claim`.
 
 `keyMode`, `calls`, and `renewalPeriod` are required for `limit` rules. `keyClaimName` is required when `keyMode` is `client-id-claim`.
+
+If both `match.caller.clientIds` and `match.caller.scopes` are present, both must match. Scope matching uses a padded string match against the bearer token's `scope` claim, with `scp` used as a fallback.
 
 `exclude` rules are evaluated before all `limit` rules. If any enabled exclude rule matches, the generated fragment skips all rate limiting for that request:
 
@@ -99,9 +109,28 @@ Supported values:
   "id": "health-exempt",
   "enabled": true,
   "action": "exclude",
-  "methods": ["GET"],
-  "pathMode": "exact",
-  "path": "/dialogporten/health"
+  "match": {
+    "methods": ["GET"],
+    "pathMode": "exact",
+    "path": "/dialogporten/health"
+  }
+}
+```
+
+An exclude rule can also exempt a specific caller from all rate limiting:
+
+```json
+{
+  "id": "foobar-exempt",
+  "enabled": true,
+  "action": "exclude",
+  "match": {
+    "methods": ["*"],
+    "pathMode": "any",
+    "caller": {
+      "clientIds": ["foobar"]
+    }
+  }
 }
 ```
 
@@ -142,8 +171,8 @@ Generated rules use static `choose`/`when` blocks and `rate-limit-by-key` statem
 Generated headers are stable. `Retry-After` is always configured. `X-RateLimit-*` headers are emitted only when `--emit-rate-limit-headers` is set:
 
 - `Retry-After`
-- `X-RateLimit-Remaining-{Scope}-{RuleId}`
-- `X-RateLimit-Limit-{Scope}-{RuleId}`
+- `X-RateLimit-Remaining-{Name}-{RuleId}`
+- `X-RateLimit-Limit-{Name}-{RuleId}`
 
 Output is byte-for-byte deterministic for the same input and compiler version.
 
@@ -155,9 +184,9 @@ Errors fail compilation:
 - Unknown `version`.
 - Unknown JSON properties.
 - Duplicate rule IDs.
-- Unsafe `scope` or `id` characters. Only ASCII letters, digits, `-`, and `_` are allowed.
-- Missing or invalid `calls`, `renewalPeriod`, `methods`, `pathMode`, or `keyMode` for `limit` rules.
-- Missing or invalid `methods` or `pathMode` for `exclude` rules.
+- Unsafe `name` or `id` characters. Only ASCII letters, digits, `-`, and `_` are allowed.
+- Missing or invalid `calls`, `renewalPeriod`, `match.methods`, `match.pathMode`, or `keyMode` for `limit` rules.
+- Missing or invalid `match.methods` or `match.pathMode` for `exclude` rules.
 - `calls <= 0`.
 - `renewalPeriod <= 0` or `renewalPeriod > 300`.
 - `exact` or `prefix` path modes without `path`.
@@ -167,7 +196,7 @@ Errors fail compilation:
 
 Warnings do not fail compilation unless `--fail-on-warning` is set:
 
-- More than 50 enabled rules in one scope.
+- More than 50 enabled rules in one configuration.
 - Very high call limits.
 
 ## Development

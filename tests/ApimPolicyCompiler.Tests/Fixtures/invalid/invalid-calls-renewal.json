@@ -1,16 +1,20 @@
 {
   "version": 1,
-  "scope": "dialogporten",
+  "name": "dialogporten",
   "enabled": true,
   "rules": [
     {
       "id": "bad",
       "enabled": true,
-      "methods": ["GET"],
-      "pathMode": "any",
       "keyMode": "client-id",
       "calls": 0,
-      "renewalPeriod": 301
+      "renewalPeriod": 301,
+      "match": {
+        "methods": [
+          "GET"
+        ],
+        "pathMode": "any"
+      }
     }
   ]
 }

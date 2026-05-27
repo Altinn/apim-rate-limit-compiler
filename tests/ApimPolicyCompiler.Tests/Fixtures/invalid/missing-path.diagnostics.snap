@@ -1,1 +1,1 @@
-ERROR APIMRL1106 [rules[0].path]: Path is required when pathMode is exact or prefix.
+ERROR APIMRL1106 [rules[0].match.path]: Path is required when pathMode is exact or prefix.

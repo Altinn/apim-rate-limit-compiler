@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "name": "dialogporten",
+  "enabled": true,
+  "rules": [
+    {
+      "id": "partner-write",
+      "enabled": true,
+      "match": {
+        "methods": [
+          "POST"
+        ],
+        "pathMode": "prefix",
+        "path": "/dialogporten/api/v1/orders/",
+        "caller": {
+          "clientIds": [
+            "partner-a",
+            "partner-b"
+          ],
+          "scopes": [
+            "orders:write",
+            "orders:admin"
+          ]
+        }
+      },
+      "keyMode": "client-id",
+      "calls": 300,
+      "renewalPeriod": 60
+    },
+    {
+      "id": "foobar-exempt",
+      "enabled": true,
+      "action": "exclude",
+      "match": {
+        "methods": [
+          "*"
+        ],
+        "pathMode": "any",
+        "caller": {
+          "clientIds": [
+            "foobar"
+          ]
+        }
+      }
+    }
+  ]
+}

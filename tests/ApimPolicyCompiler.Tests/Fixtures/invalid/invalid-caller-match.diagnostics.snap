@@ -1,0 +1,3 @@
+ERROR APIMRL1000 [rules[0].match.caller]: Unknown property 'unexpected'.
+ERROR APIMRL1112 [rules[0].match.caller.clientIds]: clientIds must contain at least one client id.
+ERROR APIMRL1113 [rules[0].match.caller.scopes]: scopes cannot contain empty values or whitespace.

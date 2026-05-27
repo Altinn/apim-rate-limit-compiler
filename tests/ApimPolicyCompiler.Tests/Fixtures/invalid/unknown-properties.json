@@ -1,18 +1,22 @@
 {
   "version": 1,
-  "scope": "dialogporten",
+  "name": "dialogporten",
   "enabled": true,
-  "unexpected": true,
   "rules": [
     {
       "id": "default",
       "enabled": true,
-      "methods": ["GET"],
-      "pathMode": "any",
       "keyMode": "client-id",
       "calls": 10,
       "renewalPeriod": 60,
-      "extra": "nope"
+      "extra": "nope",
+      "match": {
+        "methods": [
+          "GET"
+        ],
+        "pathMode": "any"
+      }
     }
-  ]
+  ],
+  "unexpected": true
 }

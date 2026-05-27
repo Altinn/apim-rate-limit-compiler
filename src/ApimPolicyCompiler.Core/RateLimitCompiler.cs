@@ -9,6 +9,8 @@ namespace ApimPolicyCompiler.Core;
 
 public static class RateLimitCompiler
 {
+    private const string ScopesVariableName = "oauthScopes";
+
     private static readonly HashSet<string> ValidMethods = new(StringComparer.Ordinal)
     {
         "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "TRACE"
@@ -96,9 +98,9 @@ public static class RateLimitCompiler
             diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1001", "Only version 1 is supported.", "version"));
         }
 
-        if (!IsSafeName(config.Scope))
+        if (!IsSafeName(config.Name))
         {
-            diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1002", "Scope is required and may only contain letters, digits, '-' and '_'.", "scope"));
+            diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1002", "Name is required and may only contain letters, digits, '-' and '_'.", "name"));
         }
 
         if (config.Rules is null)
@@ -124,18 +126,12 @@ public static class RateLimitCompiler
                 diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1102", $"Duplicate rule id '{rule.Id}'.", $"{target}.id"));
             }
 
-            ValidateMethods(diagnostics, rule, target);
             ValidateAction(diagnostics, rule, target);
-            ValidateMode(diagnostics, ValidPathModes, rule.PathMode, "pathMode", "APIMRL1104", target);
+            ValidateMatch(diagnostics, rule.Match, $"{target}.match");
 
             if (GetAction(rule) == "limit")
             {
                 ValidateMode(diagnostics, ValidKeyModes, rule.KeyMode, "keyMode", "APIMRL1105", target);
-            }
-
-            if ((rule.PathMode == "exact" || rule.PathMode == "prefix") && string.IsNullOrWhiteSpace(rule.Path))
-            {
-                diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1106", "Path is required when pathMode is exact or prefix.", $"{target}.path"));
             }
 
             if (GetAction(rule) == "limit" && rule.KeyMode == "client-id-claim" && string.IsNullOrWhiteSpace(rule.KeyClaimName))
@@ -162,7 +158,7 @@ public static class RateLimitCompiler
         var enabledRules = config.Rules.Where(static x => x.Enabled).ToArray();
         if (enabledRules.Length > 10)
         {
-            diagnostics.Add(new Diagnostic(DiagnosticSeverity.Warning, "APIMRL2003", "Scope contains many enabled rules.", "rules"));
+            diagnostics.Add(new Diagnostic(DiagnosticSeverity.Warning, "APIMRL2003", "Configuration contains many enabled rules.", "rules"));
         }
 
         return diagnostics;
@@ -189,21 +185,88 @@ public static class RateLimitCompiler
         }
     }
 
-    private static void ValidateMethods(List<Diagnostic> diagnostics, RateLimitRule rule, string target)
+    private static void ValidateMatch(List<Diagnostic> diagnostics, RateLimitMatch? match, string target)
     {
-        if (rule.Methods is null || rule.Methods.Count == 0)
+        if (match is null)
+        {
+            diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1111", "match is required.", target));
+            return;
+        }
+
+        AddUnknownProperties(diagnostics, match.ExtensionData, target);
+        ValidateMethods(diagnostics, match.Methods, target);
+        ValidateMode(diagnostics, ValidPathModes, match.PathMode, "pathMode", "APIMRL1104", target);
+
+        if ((match.PathMode == "exact" || match.PathMode == "prefix") && string.IsNullOrWhiteSpace(match.Path))
+        {
+            diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1106", "Path is required when pathMode is exact or prefix.", $"{target}.path"));
+        }
+
+        ValidateCallerMatch(diagnostics, match.Caller, $"{target}.caller");
+    }
+
+    private static void ValidateCallerMatch(List<Diagnostic> diagnostics, RateLimitCallerMatch? caller, string target)
+    {
+        if (caller is null)
+        {
+            return;
+        }
+
+        AddUnknownProperties(diagnostics, caller.ExtensionData, target);
+
+        if (caller.ClientIds is null && caller.Scopes is null)
+        {
+            diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1114", "caller must contain clientIds or scopes.", target));
+        }
+
+        if (caller.ClientIds is { Count: 0 })
+        {
+            diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1112", "clientIds must contain at least one client id.", $"{target}.clientIds"));
+        }
+
+        if (caller.ClientIds is not null)
+        {
+            foreach (var clientId in caller.ClientIds)
+            {
+                if (string.IsNullOrWhiteSpace(clientId))
+                {
+                    diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1112", "clientIds cannot contain empty values.", $"{target}.clientIds"));
+                }
+            }
+        }
+
+        if (caller.Scopes is { Count: 0 })
+        {
+            diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1113", "scopes must contain at least one scope.", $"{target}.scopes"));
+        }
+
+        if (caller.Scopes is not null)
+        {
+            foreach (var scope in caller.Scopes)
+            {
+                if (string.IsNullOrWhiteSpace(scope) || scope.Any(char.IsWhiteSpace))
+                {
+                    diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1113", "scopes cannot contain empty values or whitespace.", $"{target}.scopes"));
+                }
+            }
+        }
+    }
+
+    private static void ValidateMethods(List<Diagnostic> diagnostics, List<string>? methods, string target)
+    {
+        if (methods is null || methods.Count == 0)
         {
             diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1103", "methods must contain '*' or at least one supported HTTP method.", $"{target}.methods"));
             return;
         }
 
-        if (rule.Methods.Contains("*", StringComparer.Ordinal) && rule.Methods.Count > 1)
+        if (methods.Contains("*", StringComparer.Ordinal) && methods.Count > 1)
         {
             diagnostics.Add(new Diagnostic(DiagnosticSeverity.Error, "APIMRL1103", "methods cannot combine '*' with explicit HTTP methods.", $"{target}.methods"));
             return;
         }
 
-        foreach (var method in rule.Methods)
+        foreach (var method in methods)
         {
             if (method == "*")
             {
@@ -256,9 +319,13 @@ public static class RateLimitCompiler
             return WriteDocument(fragment);
         }
 
-        fragment.Add(CreatePreamble(options.ClientIdVariableName));
-
         var enabledRules = config.Rules!.Where(static x => x.Enabled).ToArray();
+        fragment.Add(CreatePreamble(options.ClientIdVariableName));
+        if (enabledRules.Any(static x => x.Match?.Caller?.Scopes is { Count: > 0 }))
+        {
+            fragment.Add(CreateScopesPreamble());
+        }
+
         var excludeRules = enabledRules
             .Where(static x => GetAction(x) == "exclude")
             .OrderBy(static x => x.Id, StringComparer.Ordinal)
@@ -270,13 +337,13 @@ public static class RateLimitCompiler
 
         if (excludeRules.Length > 0)
         {
-            fragment.Add(CreateExcludeChoose(config.Scope!, excludeRules, limitRules, options));
+            fragment.Add(CreateExcludeChoose(config.Name!, excludeRules, limitRules, options));
         }
         else
         {
             foreach (var rule in limitRules)
             {
-                fragment.Add(CreateRuleChoose(config.Scope!, rule, options.EmitRateLimitHeaders, options.ClientIdVariableName));
+                fragment.Add(CreateRuleChoose(config.Name!, rule, options.EmitRateLimitHeaders, options.ClientIdVariableName));
             }
         }
 
@@ -326,7 +393,60 @@ public static class RateLimitCompiler
                     new XAttribute("value", resolveClientId))));
     }
 
-    private static XElement CreateExcludeChoose(string scope, IReadOnlyList<RateLimitRule> excludeRules, IReadOnlyList<RateLimitRule> limitRules, CompilerOptions options)
+    private static XElement CreateScopesPreamble()
+    {
+        var missingScopes = NormalizePolicyExpression(
+            // language=C#
+            $$"""
+            @(
+                !(context.Variables.ContainsKey({{QuotePolicyString(ScopesVariableName)}})
+                    && !string.IsNullOrEmpty((string)context.Variables[{{QuotePolicyString(ScopesVariableName)}}]))
+            )
+            """);
+
+        var resolveScopes = NormalizePolicyExpression(
+            // language=C#
+            """
+            @{
+                var authorization = context.Request.Headers.GetValueOrDefault("Authorization", "");
+
+                if (!string.IsNullOrEmpty(authorization)
+                    && authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+                {
+                    var jwt = authorization.Substring(7).AsJwt();
+
+                    if (jwt != null)
+                    {
+                        var scopes = jwt.Claims.GetValueOrDefault("scope", "");
+
+                        if (string.IsNullOrEmpty(scopes))
+                        {
+                            scopes = jwt.Claims.GetValueOrDefault("scp", "");
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(scopes))
+                        {
+                            return " " + scopes.Trim() + " ";
+                        }
+                    }
+                }
+
+                return "";
+            }
+            """);
+
+        return new XElement(
+            "choose",
+            new XElement(
+                "when",
+                new XAttribute("condition", missingScopes),
+                new XElement(
+                    "set-variable",
+                    new XAttribute("name", ScopesVariableName),
+                    new XAttribute("value", resolveScopes))));
+    }
+
+    private static XElement CreateExcludeChoose(string configName, IReadOnlyList<RateLimitRule> excludeRules, IReadOnlyList<RateLimitRule> limitRules, CompilerOptions options)
     {
         var excludeCondition = NormalizePolicyExpression(
             // language=C#
@@ -334,14 +454,14 @@ public static class RateLimitCompiler
             @(
                 {{string.Join(
                     " || ",
-                    excludeRules.Select(BuildMatchExpression))}}
+                    excludeRules.Select(x => BuildMatchExpression(x, options.ClientIdVariableName)))}}
             )
             """);
 
         var otherwise = new XElement("otherwise");
         foreach (var rule in limitRules)
         {
-            otherwise.Add(CreateRuleChoose(scope, rule, options.EmitRateLimitHeaders, options.ClientIdVariableName));
+            otherwise.Add(CreateRuleChoose(configName, rule, options.EmitRateLimitHeaders, options.ClientIdVariableName));
         }
 
         return new XElement(
@@ -352,14 +472,14 @@ public static class RateLimitCompiler
             otherwise);
     }
 
-    private static XElement CreateRuleChoose(string scope, RateLimitRule rule, bool emitRateLimitHeaders, string clientIdVariableName)
+    private static XElement CreateRuleChoose(string configName, RateLimitRule rule, bool emitRateLimitHeaders, string clientIdVariableName)
     {
         var condition = NormalizePolicyExpression(
             // language=C#
             $$"""
             @(
                 !string.IsNullOrEmpty((string)context.Variables[{{QuotePolicyString(clientIdVariableName)}}])
-                && {{BuildMatchExpression(rule)}}
+                && {{BuildMatchExpression(rule, clientIdVariableName)}}
             )
             """);
 
@@ -367,14 +487,14 @@ public static class RateLimitCompiler
             "rate-limit-by-key",
             new XAttribute("calls", rule.Calls.ToString(CultureInfo.InvariantCulture)),
             new XAttribute("renewal-period", rule.RenewalPeriod.ToString(CultureInfo.InvariantCulture)),
-            new XAttribute("counter-key", BuildCounterKeyExpression(scope, rule, clientIdVariableName)),
+            new XAttribute("counter-key", BuildCounterKeyExpression(configName, rule, clientIdVariableName)),
             new XAttribute("retry-after-header-name", "Retry-After"));
 
         if (emitRateLimitHeaders)
         {
             rateLimit.Add(
-                new XAttribute("remaining-calls-header-name", $"X-RateLimit-Remaining-{scope}-{rule.Id}"),
-                new XAttribute("total-calls-header-name", $"X-RateLimit-Limit-{scope}-{rule.Id}"));
+                new XAttribute("remaining-calls-header-name", $"X-RateLimit-Remaining-{configName}-{rule.Id}"),
+                new XAttribute("total-calls-header-name", $"X-RateLimit-Limit-{configName}-{rule.Id}"));
         }
 
         return new XElement(
@@ -385,50 +505,101 @@ public static class RateLimitCompiler
                 rateLimit));
     }
 
-    private static string BuildMatchExpression(RateLimitRule rule)
+    private static string BuildMatchExpression(RateLimitRule rule, string clientIdVariableName)
     {
-        var methodExpression = rule.Methods is ["*"]
+        var match = rule.Match!;
+        var methodExpression = match.Methods is ["*"]
             ? "true"
             : NormalizePolicyExpression(
                 $$"""
                 (
                     {{string.Join(
                         " || ",
-                        rule.Methods!
+                        match.Methods!
                             .Order(StringComparer.Ordinal)
                             .Select(static x => $"context.Request.Method == {QuotePolicyString(x)}"))}}
                 )
                 """);
 
-        var pathExpression = rule.PathMode switch
+        var pathExpression = match.PathMode switch
         {
             "any" => "true",
             "exact" => NormalizePolicyExpression(
                 $$"""
-                context.Request.Url.Path == {{QuotePolicyString(rule.Path!)}}
+                context.Request.Url.Path == {{QuotePolicyString(match.Path!)}}
                 """),
             "prefix" => NormalizePolicyExpression(
                 $$"""
                 context.Request.Url.Path.StartsWith(
-                    {{QuotePolicyString(rule.Path!)}},
+                    {{QuotePolicyString(match.Path!)}},
                     StringComparison.Ordinal
                 )
                 """),
             _ => "false"
         };
 
+        var callerExpression = BuildCallerMatchExpression(match.Caller, clientIdVariableName);
+
         return NormalizePolicyExpression(
             $$"""
             (
                 {{methodExpression}}
                 && {{pathExpression}}
+                && {{callerExpression}}
             )
             """);
     }
 
-    private static string BuildCounterKeyExpression(string scope, RateLimitRule rule, string clientIdVariableName)
+    private static string BuildCallerMatchExpression(RateLimitCallerMatch? caller, string clientIdVariableName)
     {
-        var prefix = $"{scope}:{rule.Id}:{rule.KeyMode}:";
+        if (caller is null)
+        {
+            return "true";
+        }
+
+        var expressions = new List<string>();
+
+        if (caller.ClientIds is { Count: > 0 })
+        {
+            expressions.Add(NormalizePolicyExpression(
+                $$"""
+                (
+                    {{string.Join(
+                        " || ",
+                        caller.ClientIds
+                            .Order(StringComparer.Ordinal)
+                            .Select(x => $"(string)context.Variables[{QuotePolicyString(clientIdVariableName)}] == {QuotePolicyString(x)}"))}}
+                )
+                """));
+        }
+
+        if (caller.Scopes is { Count: > 0 })
+        {
+            expressions.Add(NormalizePolicyExpression(
+                $$"""
+                (
+                    {{string.Join(
+                        " || ",
+                        caller.Scopes
+                            .Order(StringComparer.Ordinal)
+                            .Select(static x => $"((string)context.Variables[{QuotePolicyString(ScopesVariableName)}]).Contains({QuotePolicyString(" " + x + " ")}, StringComparison.Ordinal)"))}}
+                )
+                """));
+        }
+
+        return expressions.Count == 0
+            ? "true"
+            : NormalizePolicyExpression(
+                $$"""
+                (
+                    {{string.Join(" && ", expressions)}}
+                )
+                """);
+    }
+
+    private static string BuildCounterKeyExpression(string configName, RateLimitRule rule, string clientIdVariableName)
+    {
+        var prefix = $"{configName}:{rule.Id}:{rule.KeyMode}:";
         return rule.KeyMode switch
         {
             "client-id" => BuildClientIdCounterKey(prefix, clientIdVariableName),

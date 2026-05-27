@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "scope": "dialogporten",
+  "name": "dialogporten",
   "enabled": true,
   "rules": []
 }
