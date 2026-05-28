@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  APIM_POLICY_COMPILER_VERSION: v0.3.0-alpha
+  APIM_RATE_LIMIT_COMPILER_VERSION: v0.3.0-alpha
   RATE_LIMIT_CONFIG_PATH: examples/github-actions-bicep/rate-limits/dialogporten.json
   FRAGMENT_OUTPUT_PATH: generated/apim-rate-limit-dialogporten.fragment.xml
   FRAGMENT_HASH_PATH: generated/apim-rate-limit-dialogporten.fragment.sha256
@@ -24,26 +24,26 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Download apim-policy-compiler
+      - name: Download apim-rate-limit-compiler
         shell: bash
         run: |
           set -euo pipefail
 
-          archive="apim-policy-compiler-linux-x64.tar.gz"
+          archive="apim-rate-limit-compiler-linux-x64.tar.gz"
           curl -fsSL --retry 3 \
             -o "$archive" \
-            "https://github.com/Altinn/apim-policy-compiler/releases/download/${APIM_POLICY_COMPILER_VERSION}/${archive}"
+            "https://github.com/Altinn/apim-rate-limit-compiler/releases/download/${APIM_RATE_LIMIT_COMPILER_VERSION}/${archive}"
 
-          mkdir -p .tools/apim-policy-compiler
-          tar -xzf "$archive" -C .tools/apim-policy-compiler
-          chmod +x .tools/apim-policy-compiler/apim-policy-compiler
+          mkdir -p .tools/apim-rate-limit-compiler
+          tar -xzf "$archive" -C .tools/apim-rate-limit-compiler
+          chmod +x .tools/apim-rate-limit-compiler/apim-rate-limit-compiler
 
       - name: Compile fragment
         shell: bash
         run: |
           set -euo pipefail
 
-          .tools/apim-policy-compiler/apim-policy-compiler rate-limit \
+          .tools/apim-rate-limit-compiler/apim-rate-limit-compiler rate-limit \
             --input "$RATE_LIMIT_CONFIG_PATH" \
             --output "$FRAGMENT_OUTPUT_PATH" \
             --write-hash "$FRAGMENT_HASH_PATH" \

@@ -1,6 +1,6 @@
 # GitHub Actions + Bicep Example
 
-This example shows how a downstream product repository can use `apim-policy-compiler` in GitHub Actions to compile reviewed rate-limit JSON into an Azure API Management policy fragment, upload the generated XML and hash as build artifacts, and deploy the fragment with Bicep.
+This example shows how a downstream product repository can use `apim-rate-limit-compiler` in GitHub Actions to compile reviewed rate-limit JSON into an Azure API Management policy fragment, upload the generated XML and hash as build artifacts, and deploy the fragment with Bicep.
 
 The example targets an existing API Management instance. It does not create API Management, APIs, products, subscriptions, or attach the fragment to an API policy.
 
@@ -24,14 +24,14 @@ Then edit the workflow constants near the top:
 
 ```yaml
 env:
-  APIM_POLICY_COMPILER_VERSION: v0.3.0-alpha
+  APIM_RATE_LIMIT_COMPILER_VERSION: v0.3.0-alpha
   RATE_LIMIT_CONFIG_PATH: rate-limits/dialogporten.json
   FRAGMENT_OUTPUT_PATH: generated/apim-rate-limit-dialogporten.fragment.xml
   FRAGMENT_HASH_PATH: generated/apim-rate-limit-dialogporten.fragment.sha256
   BICEP_TEMPLATE_PATH: infra/apim-policy-fragment.bicep
 ```
 
-Set `APIM_POLICY_COMPILER_VERSION` to a reviewed, pinned release tag from this repository. The workflow downloads the matching `apim-policy-compiler-linux-x64.tar.gz` release asset.
+Set `APIM_RATE_LIMIT_COMPILER_VERSION` to a reviewed, pinned release tag from this repository. The workflow downloads the matching `apim-rate-limit-compiler-linux-x64.tar.gz` release asset.
 
 ## GitHub Environment Configuration
 
@@ -77,12 +77,12 @@ The compiler command includes `--source-ref` and `--source-revision`, so generat
 From a checkout of this repository, you can compile the sample input with the local CLI:
 
 ```bash
-dotnet run --project src/ApimPolicyCompiler.Cli -- \
+dotnet run --project src/ApimRateLimitCompiler.Cli -- \
   rate-limit \
   --input examples/github-actions-bicep/rate-limits/dialogporten.json \
   --output /tmp/apim-rate-limit-dialogporten.fragment.xml \
   --write-hash /tmp/apim-rate-limit-dialogporten.fragment.sha256 \
-  --source-ref "https://github.com/Altinn/apim-policy-compiler/blob/main/examples/github-actions-bicep/rate-limits/dialogporten.json" \
+  --source-ref "https://github.com/Altinn/apim-rate-limit-compiler/blob/main/examples/github-actions-bicep/rate-limits/dialogporten.json" \
   --source-revision local \
   --fail-on-warning
 ```
