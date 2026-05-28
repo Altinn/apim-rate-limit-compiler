@@ -1,0 +1,136 @@
+name: APIM rate-limit policy fragment
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  APIM_POLICY_COMPILER_VERSION: v0.3.0-alpha
+  RATE_LIMIT_CONFIG_PATH: examples/github-actions-bicep/rate-limits/dialogporten.json
+  FRAGMENT_OUTPUT_PATH: generated/apim-rate-limit-dialogporten.fragment.xml
+  FRAGMENT_HASH_PATH: generated/apim-rate-limit-dialogporten.fragment.sha256
+  BICEP_TEMPLATE_PATH: examples/github-actions-bicep/infra/apim-policy-fragment.bicep
+
+jobs:
+  compile:
+    name: Compile policy fragment
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download apim-policy-compiler
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          archive="apim-policy-compiler-linux-x64.tar.gz"
+          curl -fsSL --retry 3 \
+            -o "$archive" \
+            "https://github.com/Altinn/apim-policy-compiler/releases/download/${APIM_POLICY_COMPILER_VERSION}/${archive}"
+
+          mkdir -p .tools/apim-policy-compiler
+          tar -xzf "$archive" -C .tools/apim-policy-compiler
+          chmod +x .tools/apim-policy-compiler/apim-policy-compiler
+
+      - name: Compile fragment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          .tools/apim-policy-compiler/apim-policy-compiler rate-limit \
+            --input "$RATE_LIMIT_CONFIG_PATH" \
+            --output "$FRAGMENT_OUTPUT_PATH" \
+            --write-hash "$FRAGMENT_HASH_PATH" \
+            --source-ref "https://github.com/${GITHUB_REPOSITORY}/blob/${GITHUB_SHA}/${RATE_LIMIT_CONFIG_PATH}" \
+            --source-revision "$GITHUB_SHA" \
+            --fail-on-warning
+
+      - name: Upload fragment artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apim-rate-limit-fragment
+          if-no-files-found: error
+          path: |
+            ${{ env.FRAGMENT_OUTPUT_PATH }}
+            ${{ env.FRAGMENT_HASH_PATH }}
+
+  deploy:
+    name: Deploy policy fragment
+    runs-on: ubuntu-latest
+    needs: compile
+    if: github.event_name != 'pull_request'
+    environment: dev
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      APIM_RESOURCE_GROUP: ${{ vars.APIM_RESOURCE_GROUP }}
+      APIM_SERVICE_NAME: ${{ vars.APIM_SERVICE_NAME }}
+      APIM_POLICY_FRAGMENT_NAME: ${{ vars.APIM_POLICY_FRAGMENT_NAME }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download fragment artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: apim-rate-limit-fragment
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create deployment parameters
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -n "$APIM_RESOURCE_GROUP"
+          test -n "$APIM_SERVICE_NAME"
+          test -n "$APIM_POLICY_FRAGMENT_NAME"
+          test -f "$FRAGMENT_OUTPUT_PATH"
+
+          jq -n \
+            --arg apimServiceName "$APIM_SERVICE_NAME" \
+            --arg policyFragmentName "$APIM_POLICY_FRAGMENT_NAME" \
+            --arg policyFragmentDescription "Generated from ${GITHUB_REPOSITORY}@${GITHUB_SHA}" \
+            --rawfile fragmentXml "$FRAGMENT_OUTPUT_PATH" \
+            '{
+              "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+              "contentVersion": "1.0.0.0",
+              "parameters": {
+                "apimServiceName": { "value": $apimServiceName },
+                "policyFragmentName": { "value": $policyFragmentName },
+                "policyFragmentDescription": { "value": $policyFragmentDescription },
+                "fragmentXml": { "value": $fragmentXml }
+              }
+            }' > fragment.parameters.json
+
+      - name: Preview deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          az deployment group what-if \
+            --resource-group "$APIM_RESOURCE_GROUP" \
+            --template-file "$BICEP_TEMPLATE_PATH" \
+            --parameters @fragment.parameters.json
+
+      - name: Deploy fragment
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          az deployment group create \
+            --resource-group "$APIM_RESOURCE_GROUP" \
+            --template-file "$BICEP_TEMPLATE_PATH" \
+            --parameters @fragment.parameters.json
