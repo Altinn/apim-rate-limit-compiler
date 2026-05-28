@@ -24,6 +24,33 @@ public sealed class CompilerSnapshotTests
     }
 
     [Theory]
+    [MemberData(nameof(ValidFixtures))]
+    public void Valid_fixtures_satisfy_generated_policy_contract(string fixture)
+    {
+        var document = XDocument.Parse(CompileFixture(fixture));
+
+        var errors = GeneratedPolicyContract.Validate(document);
+
+        Assert.Empty(errors);
+    }
+
+    [Theory]
+    [MemberData(nameof(ValidFixtures))]
+    public void Valid_fixture_policy_expressions_compile(string fixture)
+    {
+        var document = XDocument.Parse(CompileFixture(fixture));
+        var expressions = PolicyExpressionExtractor.Extract(document);
+        var compiler = new PolicyExpressionCompiler();
+
+        var staticErrors = PolicyExpressionCompiler.ValidateStaticPolicySubset(expressions);
+        Assert.Empty(staticErrors);
+        foreach (var expression in expressions)
+        {
+            compiler.Compile(expression);
+        }
+    }
+
+    [Theory]
     [MemberData(nameof(InvalidFixtures))]
     public void Invalid_fixtures_match_diagnostic_snapshots(string fixture)
     {
@@ -80,6 +107,9 @@ public sealed class CompilerSnapshotTests
         Assert.True(optInResult.Success);
         Assert.Contains("X-RateLimit-Remaining-dialogporten-default", optInResult.Xml);
         Assert.Contains("X-RateLimit-Limit-dialogporten-default", optInResult.Xml);
+
+        var contractErrors = GeneratedPolicyContract.Validate(XDocument.Parse(optInResult.Xml!), emitRateLimitHeaders: true);
+        Assert.Empty(contractErrors);
     }
 
     [Fact]
@@ -98,6 +128,129 @@ public sealed class CompilerSnapshotTests
     }
 
     [Fact]
+    public void Disabled_config_emits_empty_fragment_and_applies_no_rate_limits()
+    {
+        var xml = CompileFixture(Path.Combine(FixtureRoot, "valid", "disabled-config.json"));
+
+        var document = XDocument.Parse(xml);
+        Assert.Empty(document.Root!.Elements("set-variable"));
+        Assert.Empty(document.Root!.Elements("rate-limit-by-key"));
+
+        var run = new PolicyHarness().Run(xml, CreateAuthorizedContext("client-a", "/"));
+        Assert.Empty(run.AppliedRateLimits);
+    }
+
+    [Fact]
+    public void Authorization_header_resolves_client_id_with_current_asjwt_preamble()
+    {
+        var xml = CompileFixture(Path.Combine(FixtureRoot, "valid", "preamble-bearer-jwt.json"));
+        var harness = new PolicyHarness();
+
+        var missingAuthorization = harness.Run(xml, new FakeContext());
+        Assert.Equal("", missingAuthorization.Variables["oauthClientId"]);
+        Assert.Empty(missingAuthorization.AppliedRateLimits);
+
+        var nonBearer = new FakeContext();
+        nonBearer.Request.Headers["Authorization"] = "Basic value";
+        var nonBearerResult = harness.Run(xml, nonBearer);
+        Assert.Equal("", nonBearerResult.Variables["oauthClientId"]);
+        Assert.Empty(nonBearerResult.AppliedRateLimits);
+
+        var invalidJwt = new FakeContext();
+        invalidJwt.Request.Headers["Authorization"] = "Bearer not-a-jwt";
+        var invalidJwtResult = harness.Run(xml, invalidJwt);
+        Assert.Equal("", invalidJwtResult.Variables["oauthClientId"]);
+        Assert.Empty(invalidJwtResult.AppliedRateLimits);
+
+        var validJwt = CreateAuthorizedContext("client-a", "/jwt/orders");
+        var validJwtResult = harness.Run(xml, validJwt);
+        Assert.Equal("client-a", validJwtResult.Variables["oauthClientId"]);
+        Assert.Single(validJwtResult.AppliedRateLimits);
+        Assert.Equal("dialogporten:jwt:client-id:client-a", validJwtResult.AppliedRateLimits.Single().CounterKey);
+    }
+
+    [Fact]
+    public void Existing_non_empty_client_id_variable_is_preserved()
+    {
+        var xml = CompileFixture(Path.Combine(FixtureRoot, "valid", "preamble-bearer-jwt.json"));
+        var context = CreateAuthorizedContext("token-client", "/jwt/orders");
+        context.Variables["oauthClientId"] = "existing-client";
+
+        var result = new PolicyHarness().Run(xml, context);
+
+        Assert.Equal("existing-client", result.Variables["oauthClientId"]);
+        Assert.Equal("dialogporten:jwt:client-id:existing-client", result.AppliedRateLimits.Single().CounterKey);
+    }
+
+    [Fact]
+    public void Scope_and_client_id_caller_match_is_executed_behaviorally()
+    {
+        var xml = CompileFixture(Path.Combine(FixtureRoot, "valid", "caller-match.json"));
+        var harness = new PolicyHarness();
+
+        var matching = CreateAuthorizedContext("partner-a", "/dialogporten/api/v1/orders/123", "orders:read orders:write");
+        matching.Request.Method = "POST";
+        var matchingResult = harness.Run(xml, matching);
+
+        Assert.Equal("partner-a", matchingResult.Variables["oauthClientId"]);
+        Assert.Equal(" orders:read orders:write ", matchingResult.Variables["oauthScopes"]);
+        Assert.Single(matchingResult.AppliedRateLimits);
+
+        var substringOnly = CreateAuthorizedContext("partner-a", "/dialogporten/api/v1/orders/123", "orders:writer");
+        substringOnly.Request.Method = "POST";
+        var substringResult = harness.Run(xml, substringOnly);
+        Assert.Empty(substringResult.AppliedRateLimits);
+
+        var excluded = CreateAuthorizedContext("foobar", "/dialogporten/api/v1/orders/123", "orders:write");
+        excluded.Request.Method = "POST";
+        var excludedResult = harness.Run(xml, excluded);
+        Assert.Empty(excludedResult.AppliedRateLimits);
+    }
+
+    [Fact]
+    public void Match_modes_and_methods_are_executed_behaviorally()
+    {
+        var harness = new PolicyHarness();
+
+        var anyPath = CompileFixture(Path.Combine(FixtureRoot, "valid", "any-path-rule.json"));
+        var anyPathContext = CreateAuthorizedContext("client-a", "/anything");
+        anyPathContext.Request.Method = "POST";
+        Assert.Single(harness.Run(anyPath, anyPathContext).AppliedRateLimits);
+
+        var wrongMethod = CreateAuthorizedContext("client-a", "/anything");
+        wrongMethod.Request.Method = "GET";
+        Assert.Empty(harness.Run(anyPath, wrongMethod).AppliedRateLimits);
+
+        var exactPath = CompileFixture(Path.Combine(FixtureRoot, "valid", "exact-path-rule.json"));
+        var exactMatch = CreateAuthorizedContext("client-a", "/dialogporten/api/v1/serviceowner/instances");
+        exactMatch.Request.Method = "GET";
+        Assert.Single(harness.Run(exactPath, exactMatch).AppliedRateLimits);
+
+        var exactMiss = CreateAuthorizedContext("client-a", "/dialogporten/api/v1/serviceowner/instances/123");
+        exactMiss.Request.Method = "GET";
+        Assert.Empty(harness.Run(exactPath, exactMiss).AppliedRateLimits);
+
+        var prefixAndWildcardMethod = CompileFixture(Path.Combine(FixtureRoot, "valid", "multiple-rules.json"));
+        var prefixMatch = CreateAuthorizedContext("client-a", "/dialogporten/anything");
+        prefixMatch.Request.Method = "DELETE";
+        Assert.Equal(2, harness.Run(prefixAndWildcardMethod, prefixMatch).AppliedRateLimits.Count);
+    }
+
+    [Fact]
+    public void Counter_keys_include_client_id_and_ip_as_configured()
+    {
+        var xml = CompileFixture(Path.Combine(FixtureRoot, "valid", "key-modes.json"));
+        var context = CreateAuthorizedContext("client-a", "/client-ip/resource");
+        context.Request.IpAddress = "203.0.113.10";
+
+        var result = new PolicyHarness().Run(xml, context);
+
+        Assert.Equal(
+            ["dialogporten:client:client-id:client-a", "dialogporten:client-ip:client-id-ip:client-a:203.0.113.10"],
+            result.AppliedRateLimits.Select(static x => x.CounterKey).ToArray());
+    }
+
+    [Fact]
     public void Exclude_rules_are_evaluated_before_limit_rules()
     {
         var json = File.ReadAllText(Path.Combine(FixtureRoot, "valid", "exclude-exact-path.json"));
@@ -110,6 +263,15 @@ public sealed class CompilerSnapshotTests
         Assert.Contains("/dialogporten/health", outerChoose.Element("when")!.Attribute("condition")!.Value);
         Assert.Empty(outerChoose.Element("when")!.Elements("rate-limit-by-key"));
         Assert.NotNull(outerChoose.Element("otherwise")!.Descendants("rate-limit-by-key").Single());
+
+        var harness = new PolicyHarness();
+        var excluded = CreateAuthorizedContext("client-a", "/dialogporten/health");
+        excluded.Request.Method = "GET";
+        Assert.Empty(harness.Run(result.Xml!, excluded).AppliedRateLimits);
+
+        var limited = CreateAuthorizedContext("client-a", "/dialogporten/orders");
+        limited.Request.Method = "GET";
+        Assert.Single(harness.Run(result.Xml!, limited).AppliedRateLimits);
     }
 
     [Fact]
@@ -154,5 +316,28 @@ public sealed class CompilerSnapshotTests
     private static string FormatDiagnostics(IReadOnlyList<Diagnostic> diagnostics)
     {
         return string.Join(Environment.NewLine, diagnostics.Select(static x => x.ToString())) + Environment.NewLine;
+    }
+
+    private static string CompileFixture(string fixture, CompilerOptions? options = null)
+    {
+        var json = File.ReadAllText(fixture);
+        var result = RateLimitCompiler.CompileJson(json, options ?? CompilerOptions.Default);
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        Assert.NotNull(result.Xml);
+        return result.Xml;
+    }
+
+    private static FakeContext CreateAuthorizedContext(string clientId, string path, string? scope = null)
+    {
+        var context = new FakeContext();
+        context.Request.Method = "GET";
+        context.Request.Url.Path = path;
+
+        var claims = scope is null
+            ? new[] { ("client_id", clientId) }
+            : [("scope", scope), ("client_id", clientId)];
+        context.Request.Headers["Authorization"] = JwtFixture.CreateAuthorizationHeader(claims);
+        return context;
     }
 }
