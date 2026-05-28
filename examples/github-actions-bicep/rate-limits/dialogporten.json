@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Altinn/apim-policy-compiler/main/schemas/rate-limit-v1.schema.json",
+  "version": 1,
+  "name": "dialogporten",
+  "enabled": true,
+  "rules": [
+    {
+      "id": "default",
+      "enabled": true,
+      "keyMode": "client-id",
+      "calls": 120,
+      "renewalPeriod": 60,
+      "match": {
+        "methods": [
+          "*"
+        ],
+        "pathMode": "prefix",
+        "path": "/dialogporten"
+      }
+    }
+  ]
+}
