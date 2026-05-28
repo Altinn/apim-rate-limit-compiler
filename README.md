@@ -167,7 +167,9 @@ The fragment starts with a deterministic preamble that:
 4. Sets the configured client ID variable from the first `client_id` claim found in the payload.
 5. Sets the configured client ID variable to an empty string when no client ID can be resolved.
 
-The generated `client_id` extractor is deliberately narrow and optimized for the expected token shape. It scans the decoded payload bytes for a string-valued low-ASCII `client_id` claim, but it does not validate the token and does not perform general JSON parsing.
+The generated claim extractor is deliberately narrow and optimized for the expected token shape. It scans the decoded payload bytes for string-valued low-ASCII `client_id` and `scope` claims, but it does not validate the token and does not perform general JSON parsing.
+
+When scope matching is used, the fragment decodes and scans the token once into an internal packed variable, then derives the configured client ID variable and `oauthScopes` from that value.
 
 Rate limiting is skipped when the configured client ID variable is empty.
 

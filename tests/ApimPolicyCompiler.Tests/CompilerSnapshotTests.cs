@@ -168,7 +168,7 @@ public sealed class CompilerSnapshotTests
     }
 
     [Fact]
-    public void Authorization_header_resolves_client_id_with_current_asjwt_preamble()
+    public void Authorization_header_resolves_client_id_with_specialized_preamble()
     {
         var xml = CompileFixture(Path.Combine(FixtureRoot, "valid", "preamble-bearer-jwt.json"));
         var harness = new PolicyHarness();
@@ -323,8 +323,11 @@ public sealed class CompilerSnapshotTests
 
         Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
         Assert.Contains("name=\"oauthScopes\"", result.Xml);
-        Assert.Contains("json[i + 5] != (byte)'e'", result.Xml);
-        Assert.Contains("return string.IsNullOrWhiteSpace(value) ? &quot;&quot; : &quot; &quot; + value.Trim() + &quot; &quot;;", result.Xml);
+        Assert.Contains("name=\"apimPolicyCompilerJwtClaims\"", result.Xml);
+        Assert.Contains("json[i + 5] == (byte)'e'", result.Xml);
+        Assert.Contains("return clientId + &quot;\\n&quot; + scopes;", result.Xml);
+        Assert.Contains("claims.Substring(separator + 1)", result.Xml);
+        Assert.Equal(1, CountOccurrences(result.Xml!, "Convert.FromBase64String(payload)"));
         Assert.DoesNotContain(".AsJwt()", result.Xml);
     }
 
@@ -380,5 +383,19 @@ public sealed class CompilerSnapshotTests
             : [("scope", scope), ("client_id", clientId)];
         context.Request.Headers["Authorization"] = JwtFixture.CreateAuthorizationHeader(claims);
         return context;
+    }
+
+    private static int CountOccurrences(string value, string search)
+    {
+        var count = 0;
+        var index = 0;
+
+        while ((index = value.IndexOf(search, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += search.Length;
+        }
+
+        return count;
     }
 }

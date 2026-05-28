@@ -10,6 +10,7 @@ namespace ApimPolicyCompiler.Core;
 public static class RateLimitCompiler
 {
     private const string ScopesVariableName = "oauthScopes";
+    private const string JwtClaimsVariableNameBase = "apimPolicyCompilerJwtClaims";
 
     private static readonly HashSet<string> ValidMethods = new(StringComparer.Ordinal)
     {
@@ -317,10 +318,14 @@ public static class RateLimitCompiler
         }
 
         var enabledRules = config.Rules!.Where(static x => x.Enabled).ToArray();
-        fragment.Add(CreatePreamble(options.ClientIdVariableName));
-        if (enabledRules.Any(static x => x.Match?.Caller?.Scopes is { Count: > 0 }))
+        var usesScopes = enabledRules.Any(static x => x.Match?.Caller?.Scopes is { Count: > 0 });
+        if (usesScopes)
         {
-            fragment.Add(CreateScopesPreamble());
+            fragment.Add(CreateCombinedCallerPreamble(options.ClientIdVariableName));
+        }
+        else
+        {
+            fragment.Add(CreatePreamble(options.ClientIdVariableName));
         }
 
         var excludeRules = enabledRules
@@ -349,14 +354,7 @@ public static class RateLimitCompiler
 
     private static XElement CreatePreamble(string clientIdVariableName)
     {
-        var missingClientId = NormalizePolicyExpression(
-            // language=C#
-            $$"""
-            @(
-                !(context.Variables.ContainsKey({{QuotePolicyString(clientIdVariableName)}})
-                    && !string.IsNullOrEmpty((string)context.Variables[{{QuotePolicyString(clientIdVariableName)}}]))
-            )
-            """);
+        var missingClientId = CreateMissingVariableCondition(clientIdVariableName);
 
         var resolveClientId = CreateJwtStringClaimResolver("client_id", "return value;");
 
@@ -371,22 +369,43 @@ public static class RateLimitCompiler
                     new XAttribute("value", resolveClientId))));
     }
 
-    private static XElement CreateScopesPreamble()
+    private static IEnumerable<XElement> CreateCombinedCallerPreamble(string clientIdVariableName)
     {
-        var missingScopes = NormalizePolicyExpression(
+        var jwtClaimsVariableName = CreateInternalJwtClaimsVariableName(clientIdVariableName);
+        var missingClientId = CreateMissingVariableCondition(clientIdVariableName);
+        var missingScopes = CreateMissingVariableCondition(ScopesVariableName);
+        var missingClientIdPredicate = CreateMissingVariablePredicate(clientIdVariableName);
+        var missingScopesPredicate = CreateMissingVariablePredicate(ScopesVariableName);
+        var missingEither = NormalizePolicyExpression(
             // language=C#
             $$"""
             @(
-                !(context.Variables.ContainsKey({{QuotePolicyString(ScopesVariableName)}})
-                    && !string.IsNullOrEmpty((string)context.Variables[{{QuotePolicyString(ScopesVariableName)}}]))
+                {{missingClientIdPredicate}}
+                || {{missingScopesPredicate}}
             )
             """);
 
-        var resolveScopes = CreateJwtStringClaimResolver(
-            "scope",
-            """return string.IsNullOrWhiteSpace(value) ? "" : " " + value.Trim() + " ";""");
+        yield return new XElement(
+            "choose",
+            new XElement(
+                "when",
+                new XAttribute("condition", missingEither),
+                new XElement(
+                    "set-variable",
+                    new XAttribute("name", jwtClaimsVariableName),
+                    new XAttribute("value", CreateCombinedJwtClaimsResolver()))));
 
-        return new XElement(
+        yield return new XElement(
+            "choose",
+            new XElement(
+                "when",
+                new XAttribute("condition", missingClientId),
+                new XElement(
+                    "set-variable",
+                    new XAttribute("name", clientIdVariableName),
+                    new XAttribute("value", CreatePackedClientIdResolver(jwtClaimsVariableName)))));
+
+        yield return new XElement(
             "choose",
             new XElement(
                 "when",
@@ -394,7 +413,246 @@ public static class RateLimitCompiler
                 new XElement(
                     "set-variable",
                     new XAttribute("name", ScopesVariableName),
-                    new XAttribute("value", resolveScopes))));
+                    new XAttribute("value", CreatePackedScopesResolver(jwtClaimsVariableName)))));
+    }
+
+    private static string CreateInternalJwtClaimsVariableName(string clientIdVariableName)
+    {
+        var value = JwtClaimsVariableNameBase;
+        while (string.Equals(value, clientIdVariableName, StringComparison.Ordinal)
+            || string.Equals(value, ScopesVariableName, StringComparison.Ordinal))
+        {
+            value += "Internal";
+        }
+
+        return value;
+    }
+
+    private static string CreateMissingVariableCondition(string variableName)
+    {
+        return NormalizePolicyExpression(
+            // language=C#
+            $$"""
+            @(
+                {{CreateMissingVariablePredicate(variableName)}}
+            )
+            """);
+    }
+
+    private static string CreateMissingVariablePredicate(string variableName)
+    {
+        return NormalizePolicyExpression(
+            // language=C#
+            $$"""
+            !(
+                context.Variables.ContainsKey({{QuotePolicyString(variableName)}})
+                && !string.IsNullOrEmpty((string)context.Variables[{{QuotePolicyString(variableName)}}])
+            )
+            """);
+    }
+
+    private static string CreatePackedClientIdResolver(string jwtClaimsVariableName)
+    {
+        return NormalizePolicyExpression(
+            // language=C#
+            $$"""
+            @{
+                var claims = (string)context.Variables[{{QuotePolicyString(jwtClaimsVariableName)}}];
+                var separator = claims.IndexOf('\n');
+
+                return separator < 0 ? "" : claims.Substring(0, separator);
+            }
+            """);
+    }
+
+    private static string CreatePackedScopesResolver(string jwtClaimsVariableName)
+    {
+        return NormalizePolicyExpression(
+            // language=C#
+            $$"""
+            @{
+                var claims = (string)context.Variables[{{QuotePolicyString(jwtClaimsVariableName)}}];
+                var separator = claims.IndexOf('\n');
+
+                return separator < 0 ? "" : claims.Substring(separator + 1);
+            }
+            """);
+    }
+
+    private static string CreateCombinedJwtClaimsResolver()
+    {
+        return NormalizePolicyExpression(
+            // language=C#
+            """
+            @{
+                var authorization = context.Request.Headers.GetValueOrDefault("Authorization", "");
+
+                if (string.IsNullOrEmpty(authorization)
+                    || !authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                    || authorization.Length <= 7)
+                {
+                    return "\n";
+                }
+
+                var firstDot = authorization.IndexOf('.', 7);
+
+                if (firstDot < 0)
+                {
+                    return "\n";
+                }
+
+                var secondDot = authorization.IndexOf('.', firstDot + 1);
+
+                if (secondDot <= firstDot + 1)
+                {
+                    return "\n";
+                }
+
+                var payload = authorization.Substring(firstDot + 1, secondDot - firstDot - 1)
+                    .Replace('-', '+')
+                    .Replace('_', '/');
+
+                var remainder = payload.Length % 4;
+
+                if (remainder == 1)
+                {
+                    return "\n";
+                }
+
+                if (remainder == 2)
+                {
+                    payload += "==";
+                }
+                else if (remainder == 3)
+                {
+                    payload += "=";
+                }
+
+                try
+                {
+                    var json = Convert.FromBase64String(payload);
+                    var clientId = "";
+                    var scopes = "";
+
+                    for (var i = 0; i <= json.Length - 7 && (clientId.Length == 0 || scopes.Length == 0); i++)
+                    {
+                        if (clientId.Length == 0
+                            && i <= json.Length - 11
+                            && json[i] == (byte)'"'
+                            && json[i + 1] == (byte)'c'
+                            && json[i + 2] == (byte)'l'
+                            && json[i + 3] == (byte)'i'
+                            && json[i + 4] == (byte)'e'
+                            && json[i + 5] == (byte)'n'
+                            && json[i + 6] == (byte)'t'
+                            && json[i + 7] == (byte)'_'
+                            && json[i + 8] == (byte)'i'
+                            && json[i + 9] == (byte)'d'
+                            && json[i + 10] == (byte)'"')
+                        {
+                            var cursor = i + 11;
+
+                            while (cursor < json.Length
+                                && (json[cursor] == (byte)' '
+                                    || json[cursor] == (byte)'\t'
+                                    || json[cursor] == (byte)'\r'
+                                    || json[cursor] == (byte)'\n'))
+                            {
+                                cursor++;
+                            }
+
+                            if (cursor < json.Length && json[cursor] == (byte)':')
+                            {
+                                cursor++;
+
+                                while (cursor < json.Length
+                                    && (json[cursor] == (byte)' '
+                                        || json[cursor] == (byte)'\t'
+                                        || json[cursor] == (byte)'\r'
+                                        || json[cursor] == (byte)'\n'))
+                                {
+                                    cursor++;
+                                }
+
+                                if (cursor < json.Length && json[cursor] == (byte)'"')
+                                {
+                                    var start = cursor + 1;
+                                    var end = start;
+
+                                    while (end < json.Length && json[end] != (byte)'"')
+                                    {
+                                        end++;
+                                    }
+
+                                    if (end > start)
+                                    {
+                                        clientId = System.Text.Encoding.ASCII.GetString(json, start, end - start);
+                                    }
+                                }
+                            }
+                        }
+
+                        if (scopes.Length == 0
+                            && json[i] == (byte)'"'
+                            && json[i + 1] == (byte)'s'
+                            && json[i + 2] == (byte)'c'
+                            && json[i + 3] == (byte)'o'
+                            && json[i + 4] == (byte)'p'
+                            && json[i + 5] == (byte)'e'
+                            && json[i + 6] == (byte)'"')
+                        {
+                            var cursor = i + 7;
+
+                            while (cursor < json.Length
+                                && (json[cursor] == (byte)' '
+                                    || json[cursor] == (byte)'\t'
+                                    || json[cursor] == (byte)'\r'
+                                    || json[cursor] == (byte)'\n'))
+                            {
+                                cursor++;
+                            }
+
+                            if (cursor < json.Length && json[cursor] == (byte)':')
+                            {
+                                cursor++;
+
+                                while (cursor < json.Length
+                                    && (json[cursor] == (byte)' '
+                                        || json[cursor] == (byte)'\t'
+                                        || json[cursor] == (byte)'\r'
+                                        || json[cursor] == (byte)'\n'))
+                                {
+                                    cursor++;
+                                }
+
+                                if (cursor < json.Length && json[cursor] == (byte)'"')
+                                {
+                                    var start = cursor + 1;
+                                    var end = start;
+
+                                    while (end < json.Length && json[end] != (byte)'"')
+                                    {
+                                        end++;
+                                    }
+
+                                    if (end > start)
+                                    {
+                                        var value = System.Text.Encoding.ASCII.GetString(json, start, end - start);
+                                        scopes = string.IsNullOrWhiteSpace(value) ? "" : " " + value.Trim() + " ";
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    return clientId + "\n" + scopes;
+                }
+                catch
+                {
+                    return "\n";
+                }
+            }
+            """);
     }
 
     private static string CreateJwtStringClaimResolver(string claimName, string valueReturnStatement)
