@@ -244,6 +244,26 @@ dotnet publish src/ApimPolicyCompiler.Cli/ApimPolicyCompiler.Cli.csproj \
   -nr:false
 ```
 
+For local test builds, use the helper script for the current platform:
+
+```bash
+./publish.sh
+```
+
+To stamp a local build with the same compiler version metadata shape used by release builds, pass a SemVer-like version:
+
+```bash
+./publish.sh 1.2.3
+```
+
+On Windows:
+
+```bat
+publish.bat 1.2.3
+```
+
+The scripts also accept `PUBLISH_VERSION=1.2.3` from the environment. If no version is supplied, the SDK default assembly version is used.
+
 The published binary is written to:
 
 ```text
