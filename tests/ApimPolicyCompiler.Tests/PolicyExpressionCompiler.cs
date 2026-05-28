@@ -45,6 +45,9 @@ public sealed class PolicyExpressionCompiler
         var errors = new List<string>();
         string[] denied =
         [
+            ".AsJwt()",
+            "var token =",
+            "token.IndexOf",
             "Regex",
             "Newtonsoft",
             "JObject",

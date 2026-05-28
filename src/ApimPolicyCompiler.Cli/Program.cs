@@ -31,7 +31,11 @@ public static class Program
             return 1;
         }
 
-        var compilerOptions = new CompilerOptions(options.ClientIdVariableName!, options.EmitRateLimitHeaders);
+        var compilerOptions = new CompilerOptions(
+            options.ClientIdVariableName!,
+            options.EmitRateLimitHeaders,
+            options.SourceRef,
+            options.SourceRevision);
         var result = RateLimitCompiler.CompileJson(json, compilerOptions);
         var hasWarningFailure = options.FailOnWarning && result.Warnings.Count > 0;
         WriteDiagnostics(result.Diagnostics, options.WarningsAsJson, hasWarningFailure ? DiagnosticSeverity.Error : null, stderr);
@@ -129,7 +133,7 @@ public static class Program
 
     private static void WriteUsage(TextWriter writer)
     {
-        writer.WriteLine("Usage: apim-policy-compiler rate-limit --input <file> [--output <file>] [--stdout] [--write-hash <file>] [--fail-on-warning] [--warnings-as-json] [--client-id-variable-name <name>] [--emit-rate-limit-headers]");
+        writer.WriteLine("Usage: apim-policy-compiler rate-limit --input <file> [--output <file>] [--stdout] [--write-hash <file>] [--fail-on-warning] [--warnings-as-json] [--client-id-variable-name <name>] [--emit-rate-limit-headers] [--source-ref <value>] [--source-revision <value>]");
     }
 
     private static string JsonString(string? value)
@@ -156,6 +160,10 @@ internal sealed class CliOptions
 
     public bool EmitRateLimitHeaders { get; private init; }
 
+    public string? SourceRef { get; private init; }
+
+    public string? SourceRevision { get; private init; }
+
     public string? Error { get; private init; }
 
     public static CliOptions Parse(string[] args)
@@ -173,6 +181,8 @@ internal sealed class CliOptions
         var warningsAsJson = false;
         var clientIdVariableName = CompilerOptions.Default.ClientIdVariableName;
         var emitRateLimitHeaders = false;
+        string? sourceRef = null;
+        string? sourceRevision = null;
 
         for (var i = 1; i < args.Length; i++)
         {
@@ -218,6 +228,18 @@ internal sealed class CliOptions
                 case "--emit-rate-limit-headers":
                     emitRateLimitHeaders = true;
                     break;
+                case "--source-ref":
+                    if (!ReadValue(args, ref i, out sourceRef))
+                    {
+                        return new CliOptions { Error = "--source-ref requires a value." };
+                    }
+                    break;
+                case "--source-revision":
+                    if (!ReadValue(args, ref i, out sourceRevision))
+                    {
+                        return new CliOptions { Error = "--source-revision requires a value." };
+                    }
+                    break;
                 default:
                     return new CliOptions { Error = $"Unknown argument '{args[i]}'." };
             }
@@ -242,7 +264,9 @@ internal sealed class CliOptions
             FailOnWarning = failOnWarning,
             WarningsAsJson = warningsAsJson,
             ClientIdVariableName = clientIdVariableName,
-            EmitRateLimitHeaders = emitRateLimitHeaders
+            EmitRateLimitHeaders = emitRateLimitHeaders,
+            SourceRef = sourceRef,
+            SourceRevision = sourceRevision
         };
     }
 

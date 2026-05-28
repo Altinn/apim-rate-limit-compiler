@@ -5,6 +5,7 @@ project="src/ApimPolicyCompiler.Cli/ApimPolicyCompiler.Cli.csproj"
 framework="net10.0"
 configuration="Release"
 executable_name="apim-policy-compiler"
+publish_version="${PUBLISH_VERSION:-${1:-}}"
 
 os="$(uname -s)"
 arch="$(uname -m)"
@@ -30,10 +31,26 @@ case "$os" in
     ;;
 esac
 
+version_args=""
+if [ -n "$publish_version" ]; then
+  case "$publish_version" in
+    v*) publish_version="${publish_version#v}" ;;
+  esac
+
+  if ! printf '%s\n' "$publish_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$'; then
+    echo "Version must be SemVer-like, for example v1.2.3 or 1.2.3-preview.1." >&2
+    exit 2
+  fi
+
+  version_args="-p:Version=$publish_version -p:InformationalVersion=$publish_version+local"
+fi
+
+# shellcheck disable=SC2086
 dotnet publish "$project" \
   -c "$configuration" \
   -r "$rid" \
   -p:PublishAot=true \
+  $version_args \
   -v minimal \
   -nr:false
 
@@ -42,3 +59,7 @@ binary_path="src/ApimPolicyCompiler.Cli/bin/$configuration/$framework/$rid/publi
 echo
 echo "Published binary:"
 echo "$binary_path"
+
+if [ -n "$publish_version" ]; then
+  echo "Version: $publish_version"
+fi

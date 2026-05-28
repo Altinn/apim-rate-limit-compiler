@@ -121,66 +121,19 @@ public sealed class FakeUrl
     public string Path { get; set; } = "/";
 }
 
-public sealed class FakeJwt
-{
-    public Dictionary<string, string> Claims { get; } = new(StringComparer.Ordinal);
-}
-
-
-// ReSharper disable once UnusedType.Global
-// Used by Roslyn-compiled generated policy expressions that call token.AsJwt().
-public static class FakeApimJwtExtensions
-{
-    // ReSharper disable once UnusedMember.Global
-    public static FakeJwt? AsJwt(this string token)
-    {
-        var segments = token.Split('.');
-        if (segments.Length < 2)
-        {
-            return null;
-        }
-
-        try
-        {
-            var payload = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(DecodeBase64Url(segments[1]));
-            if (payload is null)
-            {
-                return null;
-            }
-
-            var jwt = new FakeJwt();
-            foreach (var (name, value) in payload)
-            {
-                jwt.Claims[name] = value.ValueKind == JsonValueKind.String
-                    ? value.GetString() ?? ""
-                    : value.ToString();
-            }
-
-            return jwt;
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-        catch (FormatException)
-        {
-            return null;
-        }
-    }
-
-    private static string DecodeBase64Url(string value)
-    {
-        var padded = value.Replace('-', '+').Replace('_', '/');
-        padded = padded.PadRight(padded.Length + ((4 - padded.Length % 4) % 4), '=');
-        return Encoding.UTF8.GetString(Convert.FromBase64String(padded));
-    }
-}
-
 public static class JwtFixture
 {
     public static string CreateAuthorizationHeader(params (string Name, string Value)[] claims)
     {
         return "Bearer " + CreateUnsignedJwt(claims);
+    }
+
+    public static string CreateAuthorizationHeader(string payloadJson)
+    {
+        return "Bearer " + Base64Url("""{"alg":"none","typ":"JWT"}""")
+            + "."
+            + Base64Url(payloadJson)
+            + ".";
     }
 
     private static string CreateUnsignedJwt(params (string Name, string Value)[] claims)

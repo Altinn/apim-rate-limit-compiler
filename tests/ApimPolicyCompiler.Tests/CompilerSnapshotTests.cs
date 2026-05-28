@@ -120,11 +120,37 @@ public sealed class CompilerSnapshotTests
         var result = RateLimitCompiler.CompileJson(json, CompilerOptions.Default with { ClientIdVariableName = "customClientId" });
 
         Assert.True(result.Success);
-        Assert.Contains("context.Variables[&quot;customClientId&quot;]", result.Xml);
-        Assert.Contains("name=\"customClientId\"", result.Xml);
-        Assert.DoesNotContain("context.Variables[&quot;oauthClientId&quot;]", result.Xml);
-        Assert.DoesNotContain("name=\"oauthClientId\"", result.Xml);
-        Assert.Contains("(string)context.Variables[&quot;customClientId&quot;] == &quot;partner-a&quot;", result.Xml);
+        var context = CreateAuthorizedContext("partner-a", "/dialogporten/api/v1/orders/123", "orders:write");
+        context.Request.Method = "POST";
+
+        var run = new PolicyHarness().Run(result.Xml!, context);
+
+        Assert.Equal("partner-a", run.Variables["customClientId"]);
+        Assert.False(run.Variables.ContainsKey("oauthClientId"));
+        Assert.Single(run.AppliedRateLimits);
+        Assert.Equal("dialogporten:partner-write:client-id:partner-a", run.AppliedRateLimits.Single().CounterKey);
+    }
+
+    [Fact]
+    public void Source_metadata_can_be_emitted_for_operational_traceability()
+    {
+        var json = File.ReadAllText(Path.Combine(FixtureRoot, "valid", "default-prefix-rule.json"));
+        var result = RateLimitCompiler.CompileJson(
+            json,
+            CompilerOptions.Default with
+            {
+                SourceRef = "https://github.com/example/product/blob/abc123/rate-limits/dialogporten.json",
+                SourceRevision = "abc123",
+                CompilerVersion = "test-version"
+            });
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        var comments = XDocument.Parse(result.Xml!).Root!.Nodes().OfType<XComment>().Select(static x => x.Value).ToArray();
+
+        Assert.Contains(comments, static x => x.Trim() == "Source: https://github.com/example/product/blob/abc123/rate-limits/dialogporten.json");
+        Assert.Contains(comments, static x => x.Trim() == "Source-Revision: abc123");
+        Assert.Contains(comments, static x => x.Trim() == "Compiler: apim-policy-compiler test-version");
+        Assert.Contains(comments, x => x.Trim() == "Source-SHA256: " + RateLimitCompiler.ComputeSha256(json));
     }
 
     [Fact]
@@ -141,7 +167,7 @@ public sealed class CompilerSnapshotTests
     }
 
     [Fact]
-    public void Authorization_header_resolves_client_id_with_current_asjwt_preamble()
+    public void Authorization_header_resolves_client_id_with_specialized_preamble()
     {
         var xml = CompileFixture(Path.Combine(FixtureRoot, "valid", "preamble-bearer-jwt.json"));
         var harness = new PolicyHarness();
@@ -167,6 +193,27 @@ public sealed class CompilerSnapshotTests
         Assert.Equal("client-a", validJwtResult.Variables["oauthClientId"]);
         Assert.Single(validJwtResult.AppliedRateLimits);
         Assert.Equal("dialogporten:jwt:client-id:client-a", validJwtResult.AppliedRateLimits.Single().CounterKey);
+
+        var clientIdAfterOtherClaims = CreateContextWithAuthorization(
+            JwtFixture.CreateAuthorizationHeader("""{"iss":"test","sub":"subject","client_id":"client-b"}"""),
+            "/jwt/orders");
+        var clientIdAfterOtherClaimsResult = harness.Run(xml, clientIdAfterOtherClaims);
+        Assert.Equal("client-b", clientIdAfterOtherClaimsResult.Variables["oauthClientId"]);
+        Assert.Single(clientIdAfterOtherClaimsResult.AppliedRateLimits);
+
+        var whitespaceAroundColon = CreateContextWithAuthorization(
+            JwtFixture.CreateAuthorizationHeader("""{"iss":"test","client_id" : "client-c"}"""),
+            "/jwt/orders");
+        var whitespaceAroundColonResult = harness.Run(xml, whitespaceAroundColon);
+        Assert.Equal("client-c", whitespaceAroundColonResult.Variables["oauthClientId"]);
+        Assert.Single(whitespaceAroundColonResult.AppliedRateLimits);
+
+        var missingClientId = CreateContextWithAuthorization(
+            JwtFixture.CreateAuthorizationHeader("""{"iss":"test","scope":"orders:write"}"""),
+            "/jwt/orders");
+        var missingClientIdResult = harness.Run(xml, missingClientId);
+        Assert.Equal("", missingClientIdResult.Variables["oauthClientId"]);
+        Assert.Empty(missingClientIdResult.AppliedRateLimits);
     }
 
     [Fact]
@@ -205,6 +252,49 @@ public sealed class CompilerSnapshotTests
         excluded.Request.Method = "POST";
         var excludedResult = harness.Run(xml, excluded);
         Assert.Empty(excludedResult.AppliedRateLimits);
+
+        var clientIdBeforeScope = CreateContextWithAuthorization(
+            JwtFixture.CreateAuthorizationHeader("""{"client_id":"partner-a","scope":"orders:write"}"""),
+            "/dialogporten/api/v1/orders/123");
+        clientIdBeforeScope.Request.Method = "POST";
+        var clientIdBeforeScopeResult = harness.Run(xml, clientIdBeforeScope);
+        Assert.Equal("partner-a", clientIdBeforeScopeResult.Variables["oauthClientId"]);
+        Assert.Equal(" orders:write ", clientIdBeforeScopeResult.Variables["oauthScopes"]);
+        Assert.Single(clientIdBeforeScopeResult.AppliedRateLimits);
+
+        var whitespaceAroundScopeColon = CreateContextWithAuthorization(
+            JwtFixture.CreateAuthorizationHeader("""{"client_id":"partner-a","scope" : "orders:write"}"""),
+            "/dialogporten/api/v1/orders/123");
+        whitespaceAroundScopeColon.Request.Method = "POST";
+        var whitespaceAroundScopeColonResult = harness.Run(xml, whitespaceAroundScopeColon);
+        Assert.Equal(" orders:write ", whitespaceAroundScopeColonResult.Variables["oauthScopes"]);
+        Assert.Single(whitespaceAroundScopeColonResult.AppliedRateLimits);
+    }
+
+    [Fact]
+    public void Combined_caller_preamble_preserves_existing_public_variables()
+    {
+        var xml = CompileFixture(Path.Combine(FixtureRoot, "valid", "caller-match.json"));
+        var harness = new PolicyHarness();
+
+        var existingClientId = CreateAuthorizedContext("token-client", "/dialogporten/api/v1/orders/123", "orders:write");
+        existingClientId.Request.Method = "POST";
+        existingClientId.Variables["oauthClientId"] = "partner-a";
+        var existingClientIdResult = harness.Run(xml, existingClientId);
+        Assert.Equal("partner-a", existingClientIdResult.Variables["oauthClientId"]);
+        Assert.Equal(" orders:write ", existingClientIdResult.Variables["oauthScopes"]);
+        Assert.Single(existingClientIdResult.AppliedRateLimits);
+
+        var existingBoth = new FakeContext();
+        existingBoth.Request.Method = "POST";
+        existingBoth.Request.Url.Path = "/dialogporten/api/v1/orders/123";
+        existingBoth.Variables["oauthClientId"] = "partner-a";
+        existingBoth.Variables["oauthScopes"] = " orders:write ";
+        var existingBothResult = harness.Run(xml, existingBoth);
+        Assert.Equal("partner-a", existingBothResult.Variables["oauthClientId"]);
+        Assert.Equal(" orders:write ", existingBothResult.Variables["oauthScopes"]);
+        Assert.False(existingBothResult.Variables.ContainsKey("apimPolicyCompilerJwtClaims"));
+        Assert.Single(existingBothResult.AppliedRateLimits);
     }
 
     [Fact]
@@ -258,11 +348,6 @@ public sealed class CompilerSnapshotTests
         var result = RateLimitCompiler.CompileJson(json);
 
         Assert.True(result.Success);
-        var document = XDocument.Parse(result.Xml!);
-        var outerChoose = document.Root!.Elements("choose").Single(static x => x.Element("otherwise") is not null);
-        Assert.Contains("/dialogporten/health", outerChoose.Element("when")!.Attribute("condition")!.Value);
-        Assert.Empty(outerChoose.Element("when")!.Elements("rate-limit-by-key"));
-        Assert.NotNull(outerChoose.Element("otherwise")!.Descendants("rate-limit-by-key").Single());
 
         var harness = new PolicyHarness();
         var excluded = CreateAuthorizedContext("client-a", "/dialogporten/health");
@@ -275,19 +360,6 @@ public sealed class CompilerSnapshotTests
     }
 
     [Fact]
-    public void Caller_match_supports_client_ids_and_scopes()
-    {
-        var json = File.ReadAllText(Path.Combine(FixtureRoot, "valid", "caller-match.json"));
-
-        var result = RateLimitCompiler.CompileJson(json);
-
-        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
-        Assert.Contains("name=\"oauthScopes\"", result.Xml);
-        Assert.Contains("(string)context.Variables[&quot;oauthClientId&quot;] == &quot;partner-a&quot;", result.Xml);
-        Assert.Contains(".Contains(&quot; orders:write &quot;, StringComparison.Ordinal)", result.Xml);
-    }
-
-    [Fact]
     public void Cli_exit_codes_match_contract()
     {
         var valid = Path.Combine(FixtureRoot, "valid", "disabled-config.json");
@@ -297,6 +369,20 @@ public sealed class CompilerSnapshotTests
         Assert.Equal(0, Program.Run(["rate-limit", "--input", valid, "--stdout"], TextWriter.Null, TextWriter.Null));
         Assert.Equal(1, Program.Run(["rate-limit", "--input", invalid, "--stdout"], TextWriter.Null, TextWriter.Null));
         Assert.Equal(2, Program.Run(["rate-limit", "--input", valid, "--stdout", "--client-id-variable-name", "bad/name"], TextWriter.Null, TextWriter.Null));
+
+        using var stdout = new StringWriter();
+        Assert.Equal(0, Program.Run([
+            "rate-limit",
+            "--input",
+            valid,
+            "--stdout",
+            "--source-ref",
+            "https://github.com/example/product/blob/abc123/rate-limits/dialogporten.json",
+            "--source-revision",
+            "abc123"
+        ], stdout, TextWriter.Null));
+        Assert.Contains("Source: https://github.com/example/product/blob/abc123/rate-limits/dialogporten.json", stdout.ToString());
+        Assert.Contains("Source-Revision: abc123", stdout.ToString());
     }
 
     public static IEnumerable<object[]> ValidFixtures()
@@ -338,6 +424,15 @@ public sealed class CompilerSnapshotTests
             ? new[] { ("client_id", clientId) }
             : [("scope", scope), ("client_id", clientId)];
         context.Request.Headers["Authorization"] = JwtFixture.CreateAuthorizationHeader(claims);
+        return context;
+    }
+
+    private static FakeContext CreateContextWithAuthorization(string authorizationHeader, string path)
+    {
+        var context = new FakeContext();
+        context.Request.Method = "GET";
+        context.Request.Url.Path = path;
+        context.Request.Headers["Authorization"] = authorizationHeader;
         return context;
     }
 }
