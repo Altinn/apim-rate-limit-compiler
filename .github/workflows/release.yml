@@ -60,6 +60,21 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
 
+      - name: Resolve release version
+        run: |
+          $version = $env:RELEASE_TAG_NAME
+          if ([string]::IsNullOrWhiteSpace($version)) {
+            throw "Release tag name is required."
+          }
+          if ($version.StartsWith("v", [System.StringComparison]::OrdinalIgnoreCase)) {
+            $version = $version.Substring(1)
+          }
+          if ($version -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') {
+            throw "Release tag '$env:RELEASE_TAG_NAME' must be SemVer-like, for example v1.2.3 or 1.2.3-preview.1."
+          }
+          "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+        shell: pwsh
+
       - name: Restore
         run: dotnet restore "$env:PROJECT" -r "${{ matrix.rid }}" -p:PublishAot=true -v minimal
         shell: pwsh
@@ -73,6 +88,8 @@ jobs:
           -c Release
           -r "${{ matrix.rid }}"
           -p:PublishAot=true
+          -p:Version="$env:RELEASE_VERSION"
+          -p:InformationalVersion="$env:RELEASE_VERSION+$env:GITHUB_SHA"
           --self-contained true
           --no-restore
           -o "$env:OUTPUT_DIR"

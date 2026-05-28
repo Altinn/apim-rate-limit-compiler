@@ -132,6 +132,28 @@ public sealed class CompilerSnapshotTests
     }
 
     [Fact]
+    public void Source_metadata_can_be_emitted_for_operational_traceability()
+    {
+        var json = File.ReadAllText(Path.Combine(FixtureRoot, "valid", "default-prefix-rule.json"));
+        var result = RateLimitCompiler.CompileJson(
+            json,
+            CompilerOptions.Default with
+            {
+                SourceRef = "https://github.com/example/product/blob/abc123/rate-limits/dialogporten.json",
+                SourceRevision = "abc123",
+                CompilerVersion = "test-version"
+            });
+
+        Assert.True(result.Success, string.Join(Environment.NewLine, result.Diagnostics));
+        var comments = XDocument.Parse(result.Xml!).Root!.Nodes().OfType<XComment>().Select(static x => x.Value).ToArray();
+
+        Assert.Contains(comments, static x => x.Trim() == "Source: https://github.com/example/product/blob/abc123/rate-limits/dialogporten.json");
+        Assert.Contains(comments, static x => x.Trim() == "Source-Revision: abc123");
+        Assert.Contains(comments, static x => x.Trim() == "Compiler: apim-policy-compiler test-version");
+        Assert.Contains(comments, x => x.Trim() == "Source-SHA256: " + RateLimitCompiler.ComputeSha256(json));
+    }
+
+    [Fact]
     public void Disabled_config_emits_empty_fragment_and_applies_no_rate_limits()
     {
         var xml = CompileFixture(Path.Combine(FixtureRoot, "valid", "disabled-config.json"));
@@ -347,6 +369,20 @@ public sealed class CompilerSnapshotTests
         Assert.Equal(0, Program.Run(["rate-limit", "--input", valid, "--stdout"], TextWriter.Null, TextWriter.Null));
         Assert.Equal(1, Program.Run(["rate-limit", "--input", invalid, "--stdout"], TextWriter.Null, TextWriter.Null));
         Assert.Equal(2, Program.Run(["rate-limit", "--input", valid, "--stdout", "--client-id-variable-name", "bad/name"], TextWriter.Null, TextWriter.Null));
+
+        using var stdout = new StringWriter();
+        Assert.Equal(0, Program.Run([
+            "rate-limit",
+            "--input",
+            valid,
+            "--stdout",
+            "--source-ref",
+            "https://github.com/example/product/blob/abc123/rate-limits/dialogporten.json",
+            "--source-revision",
+            "abc123"
+        ], stdout, TextWriter.Null));
+        Assert.Contains("Source: https://github.com/example/product/blob/abc123/rate-limits/dialogporten.json", stdout.ToString());
+        Assert.Contains("Source-Revision: abc123", stdout.ToString());
     }
 
     public static IEnumerable<object[]> ValidFixtures()
