@@ -1,11 +1,11 @@
 @echo off
 setlocal
 
-set "PROJECT=src\ApimPolicyCompiler.Cli\ApimPolicyCompiler.Cli.csproj"
+set "PROJECT=src\ApimRateLimitCompiler.Cli\ApimRateLimitCompiler.Cli.csproj"
 set "FRAMEWORK=net10.0"
 set "CONFIGURATION=Release"
 set "RID=win-x64"
-set "EXECUTABLE_NAME=apim-policy-compiler.exe"
+set "EXECUTABLE_NAME=apim-rate-limit-compiler.exe"
 set "REQUESTED_VERSION=%~1"
 
 if "%REQUESTED_VERSION%"=="" set "REQUESTED_VERSION=%PUBLISH_VERSION%"
@@ -32,7 +32,7 @@ dotnet publish "%PROJECT%" ^
 
 if errorlevel 1 exit /b %errorlevel%
 
-set "BINARY_PATH=src\ApimPolicyCompiler.Cli\bin\%CONFIGURATION%\%FRAMEWORK%\%RID%\publish\%EXECUTABLE_NAME%"
+set "BINARY_PATH=src\ApimRateLimitCompiler.Cli\bin\%CONFIGURATION%\%FRAMEWORK%\%RID%\publish\%EXECUTABLE_NAME%"
 
 echo.
 echo Published binary:

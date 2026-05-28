@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ApimRateLimitCompiler.Cli/ApimRateLimitCompiler.Cli.csproj" />
+    <Project Path="src/ApimRateLimitCompiler.Core/ApimRateLimitCompiler.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ApimRateLimitCompiler.Tests/ApimRateLimitCompiler.Tests.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/ClientIdExtractorBench/ClientIdExtractorBench.csproj" />
+  </Folder>
+</Solution>

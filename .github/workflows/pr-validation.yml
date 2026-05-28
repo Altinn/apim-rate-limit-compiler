@@ -28,10 +28,10 @@ jobs:
         run: dotnet --info
 
       - name: Restore
-        run: dotnet restore ApimPolicyCompiler.slnx -v minimal
+        run: dotnet restore ApimRateLimitCompiler.slnx -v minimal
 
       - name: Build
-        run: dotnet build ApimPolicyCompiler.slnx --no-restore -v minimal
+        run: dotnet build ApimRateLimitCompiler.slnx --no-restore -v minimal
 
       - name: Test
-        run: dotnet test tests/ApimPolicyCompiler.Tests/ApimPolicyCompiler.Tests.csproj --no-build -v minimal
+        run: dotnet test tests/ApimRateLimitCompiler.Tests/ApimRateLimitCompiler.Tests.csproj --no-build -v minimal

@@ -1,10 +1,10 @@
 #!/usr/bin/env sh
 set -eu
 
-project="src/ApimPolicyCompiler.Cli/ApimPolicyCompiler.Cli.csproj"
+project="src/ApimRateLimitCompiler.Cli/ApimRateLimitCompiler.Cli.csproj"
 framework="net10.0"
 configuration="Release"
-executable_name="apim-policy-compiler"
+executable_name="apim-rate-limit-compiler"
 publish_version="${PUBLISH_VERSION:-${1:-}}"
 
 os="$(uname -s)"
@@ -54,7 +54,7 @@ dotnet publish "$project" \
   -v minimal \
   -nr:false
 
-binary_path="src/ApimPolicyCompiler.Cli/bin/$configuration/$framework/$rid/publish/$executable_name"
+binary_path="src/ApimRateLimitCompiler.Cli/bin/$configuration/$framework/$rid/publish/$executable_name"
 
 echo
 echo "Published binary:"
